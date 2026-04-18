@@ -1,0 +1,11 @@
+{
+  "name": "portfolio-dev-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Single-port subdomain dev proxy for portfolio apps",
+  "type": "module",
+  "main": "index.js",
+  "dependencies": {
+    "http-proxy": "^1.18.1"
+  }
+}

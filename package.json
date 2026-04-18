@@ -1,0 +1,24 @@
+{
+  "name": "profile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Profile",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently --names \"proxy,api,public,admin,customer\" --prefix-colors \"cyan,yellow,green,magenta,blue\" --kill-others-on-fail \"node dev-proxy/index.js\" \"npm run dev --prefix server\" \"npm run dev --prefix apps/public\" \"npm run dev --prefix apps/admin\" \"npm run dev --prefix apps/customer\"",
+    "install:all": "npm install && npm install --prefix server && npm install --prefix apps/public && npm install --prefix apps/admin && npm install --prefix apps/customer && npm install --prefix dev-proxy",
+    "build:all": "npm run build --prefix apps/public && npm run build --prefix apps/admin && npm run build --prefix apps/customer && node scripts/post-build.js",
+    "db:setup": "npm run db:setup --prefix server",
+    "db:migrate": "npm run db:migrate --prefix server",
+    "db:generate": "npm run db:generate --prefix server",
+    "db:seed": "npm run db:seed --prefix server",
+    "dev:api":      "npm run dev --prefix server",
+    "dev:public":   "npm run dev --prefix apps/public",
+    "dev:admin":    "npm run dev --prefix apps/admin",
+    "dev:customer": "npm run dev --prefix apps/customer",
+    "dev:proxy":    "node dev-proxy/index.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}

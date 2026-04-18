@@ -1,0 +1,573 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(VIEWER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([email])
+}
+
+model Profile {
+  id           String   @id @default(cuid())
+  name         String
+  title        String
+  bio          String   @db.Text
+  bioShort     String
+  avatarUrl    String?
+  email        String
+  phone        String?
+  location     String?
+  githubUrl    String?
+  linkedinUrl  String?
+  twitterUrl   String?
+  websiteUrl   String?
+  skills       String[]
+  techStack    String[]
+  yearsExp     Int      @default(0)
+  projectCount Int      @default(0)
+  clientCount  Int      @default(0)
+  available    Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Project {
+  id          String         @id @default(cuid())
+  title       String
+  description String
+  longDesc    String?        @db.Text
+  techStack   String[]
+  githubUrl   String?
+  liveUrl     String?
+  imageUrl    String?
+  featured    Boolean        @default(false)
+  order       Int            @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  clicks      ProjectClick[]
+  @@index([featured])
+  @@index([order])
+}
+
+model BlogPost {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  excerpt     String
+  content     String    @db.Text
+  coverImage  String?
+  tags        String[]
+  published   Boolean   @default(false)
+  readingTime Int       @default(0)
+  views       Int       @default(0)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  @@index([slug])
+  @@index([published, publishedAt])
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  features    String[]
+  price       String
+  priceNote   String?
+  tier        String
+  popular     Boolean  @default(false)
+  ctaLabel    String   @default("Get Started")
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Testimonial {
+  id          String   @id @default(cuid())
+  name        String
+  role        String
+  company     String
+  content     String
+  avatarUrl   String?
+  linkedinUrl String?
+  rating      Int      @default(5)
+  featured    Boolean  @default(false)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Resume {
+  id            String   @id @default(cuid())
+  fileName      String
+  fileUrl       String
+  version       String
+  isActive      Boolean  @default(true)
+  downloadCount Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Inquiry {
+  id          String        @id @default(cuid())
+  name        String
+  email       String
+  subject     String
+  message     String        @db.Text
+  serviceType String?
+  status      InquiryStatus @default(UNREAD)
+  ipAddress   String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Visitor {
+  id        String           @id @default(cuid())
+  sessionId String           @unique
+  deviceId  String?
+  ip        String?
+  country   String?
+  city      String?
+  region    String?
+  timezone  String?
+  device    String?
+  browser   String?
+  os        String?
+  isMobile  Boolean          @default(false)
+  referrer  String?
+  firstSeen DateTime         @default(now())
+  lastSeen  DateTime         @updatedAt
+  pageViews      PageView[]
+  events         AnalyticsEvent[]
+  sessions       VisitorSession[]
+  contentEvents  ContentEvent[]
+  @@index([sessionId])
+  @@index([country])
+  @@index([firstSeen])
+}
+
+model PageView {
+  id        String   @id @default(cuid())
+  visitorId String
+  visitor   Visitor  @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  page      String
+  title     String?
+  referrer  String?
+  duration  Int?
+  createdAt DateTime @default(now())
+  @@index([visitorId])
+  @@index([page])
+  @@index([createdAt])
+}
+
+model AnalyticsEvent {
+  id        String    @id @default(cuid())
+  visitorId String
+  visitor   Visitor   @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  type      EventType
+  page      String?
+  target    String?
+  metadata  Json?
+  createdAt DateTime  @default(now())
+  @@index([visitorId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model ProjectClick {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@index([projectId])
+  @@index([createdAt])
+}
+
+// Enhanced: visitor session with full journey tracking
+model VisitorSession {
+  id              String          @id @default(cuid())
+  visitorId       String
+  visitor         Visitor         @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  ipAddress       String?
+  deviceId        String?
+  browser         String?
+  operatingSystem String?
+  locationCountry String?
+  locationCity    String?
+  entryPage       String?
+  exitPage        String?
+  sessionStart    DateTime        @default(now())
+  sessionEnd      DateTime?
+  totalDuration   Int?            // seconds
+  totalEvents     Int             @default(0)
+  pageCount       Int             @default(0)
+  navigationPath  String[]        // ordered list of pages visited
+  contentEvents   ContentEvent[]
+  @@index([visitorId])
+  @@index([sessionStart])
+  @@index([locationCountry])
+}
+
+// Enhanced: detailed content-level event tracking
+model ContentEvent {
+  id          String         @id @default(cuid())
+  visitorId   String
+  visitor     Visitor        @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  sessionId   String?
+  session     VisitorSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  eventType   ContentEventType
+  pageUrl     String?
+  contentType ContentType    @default(OTHER)
+  contentId   String?        // blog slug, project id, etc.
+  contentTitle String?
+  metadata    Json?          // scroll depth, duration, etc.
+  createdAt   DateTime       @default(now())
+  @@index([visitorId])
+  @@index([sessionId])
+  @@index([eventType])
+  @@index([contentType, contentId])
+  @@index([createdAt])
+}
+
+enum Role {
+  ADMIN
+  VIEWER
+}
+
+enum InquiryStatus {
+  UNREAD
+  READ
+  REPLIED
+  ARCHIVED
+}
+
+enum EventType {
+  PAGE_VIEW
+  BUTTON_CLICK
+  LINK_CLICK
+  RESUME_DOWNLOAD
+  PROJECT_CLICK
+  CONTACT_SUBMIT
+  BLOG_READ
+  SERVICE_INQUIRY
+  EXTERNAL_LINK
+}
+
+enum ContentEventType {
+  PAGE_VIEW
+  BLOG_VIEW
+  BLOG_SCROLL
+  BLOG_LINK_CLICK
+  BLOG_RELATED_CLICK
+  PROJECT_VIEW
+  PROJECT_GITHUB_CLICK
+  PROJECT_DEMO_CLICK
+  PROJECT_IMAGE_VIEW
+  RESUME_PAGE_VISIT
+  RESUME_DOWNLOAD
+  SERVICE_PAGE_VISIT
+  SERVICE_INQUIRY_OPEN
+  INQUIRY_SUBMIT
+  EXTERNAL_LINK
+  BUTTON_CLICK
+  SESSION_END
+}
+
+enum ContentType {
+  BLOG
+  PROJECT
+  SERVICE
+  RESUME
+  OTHER
+}
+
+// ─── Feature Flags ────────────────────────────────────────────────────────────
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique   // e.g. "blog_visible", "maintenance_mode"
+  name        String
+  description String?
+  enabled     Boolean  @default(true)
+  category    String   @default("general")
+  metadata    Json?
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([key])
+  @@index([category])
+}
+
+// ─── Content Version History ──────────────────────────────────────────────────
+
+model ContentVersion {
+  id          String      @id @default(cuid())
+  contentType VersionType
+  contentId   String
+  version     Int
+  title       String
+  snapshot    Json        // full content snapshot
+  changedBy   String?
+  changeNote  String?
+  createdAt   DateTime    @default(now())
+  @@index([contentType, contentId])
+  @@index([createdAt])
+}
+
+// ─── API Request Log ──────────────────────────────────────────────────────────
+
+model ApiLog {
+  id           String   @id @default(cuid())
+  method       String
+  path         String
+  statusCode   Int
+  durationMs   Int
+  ip           String?
+  userAgent    String?
+  userId       String?
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  @@index([path])
+  @@index([statusCode])
+  @@index([createdAt])
+  @@index([durationMs])
+}
+
+// ─── Cache Entries ────────────────────────────────────────────────────────────
+
+model CacheEntry {
+  key        String   @id
+  value      Json
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  @@index([expiresAt])
+}
+
+// ─── Real-Time Presence ───────────────────────────────────────────────────────
+
+model ActiveVisitor {
+  id          String   @id @default(cuid())
+  sessionId   String   @unique
+  currentPage String
+  country     String?
+  device      String?
+  browser     String?
+  lastPing    DateTime @default(now())
+  createdAt   DateTime @default(now())
+  @@index([lastPing])
+}
+
+// ─── Enums (additions) ────────────────────────────────────────────────────────
+
+enum VersionType {
+  BLOG
+  PROJECT
+  SERVICE
+  PROFILE
+}
+
+// ─── Payment ──────────────────────────────────────────────────────────────────
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+model Payment {
+  id                  String        @id @default(cuid())
+  stripeSessionId     String        @unique
+  stripePaymentIntent String?
+  amount              Int           // cents
+  currency            String        @default("usd")
+  status              PaymentStatus @default(PENDING)
+  type                String        @default("service") // service | custom | donation
+  paymentSource       String        @default("inquiry") // direct | inquiry
+  planId              String?       // service plan id (direct flow only)
+  description         String?
+  customerName        String?
+  customerEmail       String?
+  serviceId           String?
+  serviceName         String?
+  inquiryId           String?
+  customerId          String?
+  customer            Customer?     @relation("CustomerPayments", fields: [customerId], references: [id], onDelete: SetNull)
+  metadata            Json?
+  receiptUrl          String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  @@index([status])
+  @@index([type])
+  @@index([paymentSource])
+  @@index([createdAt])
+  @@index([customerEmail])
+  @@index([customerId])
+}
+
+model PaymentWebhookEvent {
+  id            String   @id @default(cuid())
+  stripeEventId String   @unique
+  type          String
+  payload       Json
+  processed     Boolean  @default(false)
+  error         String?
+  createdAt     DateTime @default(now())
+  @@index([type])
+  @@index([processed])
+}
+
+// ─── Theme Setting ────────────────────────────────────────────────────────────
+
+model ThemeSetting {
+  id             String   @id @default("default")
+  mode           String   @default("dark")
+  primaryColor   String   @default("#6366f1")
+  accentColor    String   @default("#8b5cf6")
+  fontSans       String   @default("Plus Jakarta Sans")
+  fontMono       String   @default("JetBrains Mono")
+  fontDisplay    String   @default("Syne")
+  borderRadius   String   @default("rounded")
+  animationSpeed String   @default("normal")
+  customCss      String?
+  updatedAt      DateTime @updatedAt
+}
+
+// ─── Customer Portal ──────────────────────────────────────────────────────────
+
+enum AuthProvider {
+  local
+  google
+  github
+  microsoft
+}
+
+enum MessageStatus {
+  UNREAD
+  READ
+  REPLIED
+}
+
+model Customer {
+  id               String          @id @default(cuid())
+  email            String          @unique
+  password         String?
+  name             String
+  phone            String?
+  avatarUrl        String?
+  provider         AuthProvider    @default(local)
+  providerId       String?
+  stripeCustomerId String?
+  isActive         Boolean         @default(true)
+  emailVerified    Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  sessions         CustomerSession[]
+  messages         CustomerMessage[]
+  payments         Payment[]       @relation("CustomerPayments")
+  @@index([email])
+  @@index([provider])
+  @@index([stripeCustomerId])
+}
+
+model CustomerSession {
+  id           String    @id @default(cuid())
+  customerId   String
+  customer     Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  token        String    @unique
+  ipAddress    String?
+  userAgent    String?
+  browser      String?
+  device       String?
+  loginAt      DateTime  @default(now())
+  lastActiveAt DateTime  @default(now())
+  expiresAt    DateTime
+  isActive     Boolean   @default(true)
+  @@index([customerId])
+  @@index([token])
+  @@index([isActive])
+  @@index([expiresAt])
+}
+
+model CustomerMessage {
+  id         String        @id @default(cuid())
+  customerId String
+  customer   Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  message    String        @db.Text
+  status     MessageStatus @default(UNREAD)
+  adminReply String?       @db.Text
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  key         String   @unique  // e.g. "inquiry_received", "payment_success"
+  name        String            // Human-readable: "Inquiry Received"
+  subject     String
+  html        String   @db.Text
+  text        String?  @db.Text // Optional plain-text version
+  variables   String[]          // Documented variable names: ["name","email",...]
+  isSystem    Boolean  @default(false) // System templates can't be deleted
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([key])
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  // Recipient — either an admin User or a Customer
+  recipientType String   // "admin" | "customer"
+  recipientId   String   // User.id or Customer.id
+  type          String   // "success" | "warning" | "info" | "error"
+  event         String   // machine-readable: "inquiry_created", "payment_success", …
+  message       String
+  link          String?  // optional frontend path to navigate to
+  isRead        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  @@index([recipientType, recipientId, isRead])
+  @@index([recipientType, recipientId, createdAt])
+}
+
+model PageSection {
+  id         String   @id @default(cuid())
+  page       String                       // "home" | "services" | "about"
+  key        String                       // unique within page: "hero", "features", "cta"
+  sectionType String                      // "hero" | "features" | "testimonials" | "cta" | "custom"
+  title      String?
+  subtitle   String?
+  body       String?  @db.Text
+  ctaText    String?
+  ctaLink    String?
+  icon       String?
+  imageUrl   String?
+  content    Json     @default("{}")      // extra freeform content fields
+  style      Json     @default("{}")      // { primaryColor, bgColor, textColor, gradient, spacing }
+  animation  Json     @default("{}")      // { type, direction, duration, delay, trigger }
+  variant    String   @default("default") // layout variant: "default" | "centered" | "split" | "minimal"
+  mobileHide Boolean  @default(false)
+  desktopHide Boolean @default(false)
+  isVisible  Boolean  @default(true)
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@unique([page, key])
+  @@index([page, isVisible, order])
+}

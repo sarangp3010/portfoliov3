@@ -1,0 +1,61 @@
+# netlify.toml
+# Single build that produces all 3 apps, routed by subdomain.
+#
+# Directory layout after build:
+#   dist/
+#     public/    ← public.yourdomain.com
+#     admin/     ← admin.yourdomain.com
+#     customer/  ← customer.yourdomain.com
+#
+# Netlify serves `dist/` as the root. Subdomain rewrite rules below
+# transparently rewrite each subdomain to its subfolder.
+
+[build]
+  # Run from repo root — installs all workspaces then builds all 3 apps
+  command = "npm install --prefix apps/public && npm install --prefix apps/admin && npm install --prefix apps/customer && npm run build:all"
+  publish = "dist"
+
+# ── Environment variables (set real values in Netlify UI, not here) ──────────
+# These are safe defaults/placeholders. Override in Netlify dashboard.
+[build.environment]
+  NODE_VERSION = "20"
+
+# ── Subdomain routing ─────────────────────────────────────────────────────────
+# Netlify rewrites requests from each subdomain to the correct subfolder.
+# The app's own _redirects (/*  /index.html  200) then handles React Router.
+
+# admin.yourdomain.com → /admin/*
+[[redirects]]
+  from    = "https://admin.yourdomain.com/*"
+  to      = "/admin/:splat"
+  status  = 200
+  conditions = { Host = ["admin.yourdomain.com"] }
+
+# customer.yourdomain.com → /customer/*
+[[redirects]]
+  from    = "https://customer.yourdomain.com/*"
+  to      = "/customer/:splat"
+  status  = 200
+  conditions = { Host = ["customer.yourdomain.com"] }
+
+# public.yourdomain.com → /public/*
+[[redirects]]
+  from    = "https://public.yourdomain.com/*"
+  to      = "/public/:splat"
+  status  = 200
+  conditions = { Host = ["public.yourdomain.com"] }
+
+# Fallback: bare domain (no subdomain) → public app
+[[redirects]]
+  from   = "/*"
+  to     = "/public/:splat"
+  status = 200
+
+# ── Security headers for all responses ───────────────────────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options        = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy        = "strict-origin-when-cross-origin"
+    Permissions-Policy     = "camera=(), microphone=(), geolocation=()"
