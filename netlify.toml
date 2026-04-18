@@ -3,9 +3,9 @@
 #
 # Directory layout after build:
 #   dist/
-#     public/    ← public.yourdomain.com
-#     admin/     ← admin.yourdomain.com
-#     customer/  ← customer.yourdomain.com
+#     public/    ← public.sarangpatel.tech
+#     admin/     ← admin.sarangpatel.tech
+#     customer/  ← customer.sarangpatel.tech
 #
 # Netlify serves `dist/` as the root. Subdomain rewrite rules below
 # transparently rewrite each subdomain to its subfolder.
@@ -24,26 +24,26 @@
 # Netlify rewrites requests from each subdomain to the correct subfolder.
 # The app's own _redirects (/*  /index.html  200) then handles React Router.
 
-# admin.yourdomain.com → /admin/*
+# admin.sarangpatel.tech → /admin/*
 [[redirects]]
-  from    = "https://admin.yourdomain.com/*"
+  from    = "https://admin.sarangpatel.tech/*"
   to      = "/admin/:splat"
   status  = 200
-  conditions = { Host = ["admin.yourdomain.com"] }
+  conditions = { Host = ["admin.sarangpatel.tech"] }
 
-# customer.yourdomain.com → /customer/*
+# customer.sarangpatel.tech → /customer/*
 [[redirects]]
-  from    = "https://customer.yourdomain.com/*"
+  from    = "https://customer.sarangpatel.tech/*"
   to      = "/customer/:splat"
   status  = 200
-  conditions = { Host = ["customer.yourdomain.com"] }
+  conditions = { Host = ["customer.sarangpatel.tech"] }
 
-# public.yourdomain.com → /public/*
+# public.sarangpatel.tech → /public/*
 [[redirects]]
-  from    = "https://public.yourdomain.com/*"
+  from    = "https://public.sarangpatel.tech/*"
   to      = "/public/:splat"
   status  = 200
-  conditions = { Host = ["public.yourdomain.com"] }
+  conditions = { Host = ["public.sarangpatel.tech"] }
 
 # Fallback: bare domain (no subdomain) → public app
 [[redirects]]
