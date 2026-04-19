@@ -1,5 +1,9 @@
 # netlify.toml
-# Single build that produces all 3 apps, routed by subdomain.
+# Root-level Netlify config for the monorepo build.
+#
+# If Netlify is configured with `apps` as the package/base directory, it may
+# use `apps/netlify.toml` instead. Keep both files aligned so the effective
+# routing stays the same regardless of which config Netlify resolves.
 #
 # Directory layout after build:
 #   dist/
@@ -7,8 +11,8 @@
 #     admin/     ← admin.sarangpatel.tech
 #     customer/  ← customer.sarangpatel.tech
 #
-# Netlify serves `dist/` as the root. Subdomain rewrite rules below
-# transparently rewrite each subdomain to its subfolder.
+# Netlify serves `dist/` as the publish root. Host-based rewrite rules below
+# map each domain to the correct subfolder.
 
 [build]
   # Run from repo root — installs all workspaces then builds all 3 apps
@@ -21,35 +25,50 @@
   NODE_VERSION = "20"
 
 # ── Subdomain routing ─────────────────────────────────────────────────────────
-# Netlify rewrites requests from each subdomain to the correct subfolder.
-# The app's own _redirects (/*  /index.html  200) then handles React Router.
+# Netlify matches redirects by path, with host-specific conditions layered on
+# top. Static asset rules come before SPA shell fallbacks.
 
-# admin.sarangpatel.tech → /admin/*
+# admin.sarangpatel.tech static assets under /admin/*
 [[redirects]]
-  from    = "https://admin.sarangpatel.tech/*"
+  from    = "/admin/*"
   to      = "/admin/:splat"
   status  = 200
   conditions = { Host = ["admin.sarangpatel.tech"] }
 
-# customer.sarangpatel.tech → /customer/*
+# admin.sarangpatel.tech app shell
 [[redirects]]
-  from    = "https://customer.sarangpatel.tech/*"
+  from    = "/*"
+  to      = "/admin/index.html"
+  status  = 200
+  conditions = { Host = ["admin.sarangpatel.tech"] }
+
+# customer.sarangpatel.tech static assets under /customer/*
+[[redirects]]
+  from    = "/customer/*"
   to      = "/customer/:splat"
   status  = 200
   conditions = { Host = ["customer.sarangpatel.tech"] }
 
-# public.sarangpatel.tech → /public/*
+# customer.sarangpatel.tech app shell
 [[redirects]]
-  from    = "https://public.sarangpatel.tech/*"
+  from    = "/*"
+  to      = "/customer/index.html"
+  status  = 200
+  conditions = { Host = ["customer.sarangpatel.tech"] }
+
+# public.sarangpatel.tech static assets under /public/*
+[[redirects]]
+  from    = "/public/*"
   to      = "/public/:splat"
   status  = 200
-  conditions = { Host = ["public.sarangpatel.tech"] }
+  conditions = { Host = ["public.sarangpatel.tech", "sarangpatel.tech", "www.sarangpatel.tech"] }
 
-# Fallback: bare domain (no subdomain) → public app
+# public.sarangpatel.tech and apex app shell
 [[redirects]]
-  from   = "/*"
-  to     = "/public/:splat"
-  status = 200
+  from    = "/*"
+  to      = "/public/index.html"
+  status  = 200
+  conditions = { Host = ["public.sarangpatel.tech", "sarangpatel.tech", "www.sarangpatel.tech"] }
 
 # ── Security headers for all responses ───────────────────────────────────────
 [[headers]]
