@@ -18,32 +18,47 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# admin.sarangpatel.tech → /admin/*
+# admin.sarangpatel.tech static assets under /admin/*
 [[redirects]]
-  from    = "https://admin.sarangpatel.tech/*"
+  from    = "/admin/*"
   to      = "/admin/:splat"
   status  = 200
   conditions = { Host = ["admin.sarangpatel.tech"] }
 
-# customer.sarangpatel.tech → /customer/*
+# admin.sarangpatel.tech app shell
 [[redirects]]
-  from    = "https://customer.sarangpatel.tech/*"
+  from    = "/*"
+  to      = "/admin/index.html"
+  status  = 200
+  conditions = { Host = ["admin.sarangpatel.tech"] }
+
+# customer.sarangpatel.tech static assets under /customer/*
+[[redirects]]
+  from    = "/customer/*"
   to      = "/customer/:splat"
   status  = 200
   conditions = { Host = ["customer.sarangpatel.tech"] }
 
-# public.sarangpatel.tech → /public/*
+# customer.sarangpatel.tech app shell
 [[redirects]]
-  from    = "https://public.sarangpatel.tech/*"
+  from    = "/*"
+  to      = "/customer/index.html"
+  status  = 200
+  conditions = { Host = ["customer.sarangpatel.tech"] }
+
+# public.sarangpatel.tech static assets under /public/*
+[[redirects]]
+  from    = "/public/*"
   to      = "/public/:splat"
   status  = 200
-  conditions = { Host = ["public.sarangpatel.tech"] }
+  conditions = { Host = ["public.sarangpatel.tech", "sarangpatel.tech", "www.sarangpatel.tech"] }
 
-# Fallback: bare domain (no subdomain) → public app
+# public.sarangpatel.tech and apex app shell
 [[redirects]]
-  from   = "/*"
-  to     = "/public/:splat"
-  status = 200
+  from    = "/*"
+  to      = "/public/index.html"
+  status  = 200
+  conditions = { Host = ["public.sarangpatel.tech", "sarangpatel.tech", "www.sarangpatel.tech"] }
 
 [[headers]]
   for = "/*"
