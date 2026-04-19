@@ -1,0 +1,54 @@
+# netlify.toml
+# Netlify Base directory: apps
+#
+# Directory layout after build:
+#   ../dist/
+#     public/    ← public.sarangpatel.tech
+#     admin/     ← admin.sarangpatel.tech
+#     customer/  ← customer.sarangpatel.tech
+#
+# Netlify serves ../dist as the publish root. Subdomain rewrite rules below
+# transparently rewrite each subdomain to its subfolder.
+
+[build]
+  # Run from the apps directory and build all 3 frontends
+  command = "npm install --prefix public && npm install --prefix admin && npm install --prefix customer && npm run build --prefix public && npm run build --prefix admin && npm run build --prefix customer && node ../scripts/post-build.js"
+  publish = "../dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# admin.sarangpatel.tech → /admin/*
+[[redirects]]
+  from    = "https://admin.sarangpatel.tech/*"
+  to      = "/admin/:splat"
+  status  = 200
+  conditions = { Host = ["admin.sarangpatel.tech"] }
+
+# customer.sarangpatel.tech → /customer/*
+[[redirects]]
+  from    = "https://customer.sarangpatel.tech/*"
+  to      = "/customer/:splat"
+  status  = 200
+  conditions = { Host = ["customer.sarangpatel.tech"] }
+
+# public.sarangpatel.tech → /public/*
+[[redirects]]
+  from    = "https://public.sarangpatel.tech/*"
+  to      = "/public/:splat"
+  status  = 200
+  conditions = { Host = ["public.sarangpatel.tech"] }
+
+# Fallback: bare domain (no subdomain) → public app
+[[redirects]]
+  from   = "/*"
+  to     = "/public/:splat"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options        = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy        = "strict-origin-when-cross-origin"
+    Permissions-Policy     = "camera=(), microphone=(), geolocation=()"
