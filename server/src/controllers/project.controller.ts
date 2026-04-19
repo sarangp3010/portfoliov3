@@ -45,6 +45,14 @@ export const deleteProject = async (req: Request, res: Response, next: NextFunct
   } catch (err) { next(err); }
 };
 
+export const deleteAllProjects = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const result = await prisma.project.deleteMany();
+    await cacheDeletePattern('projects:');
+    res.json({ success: true, count: result.count });
+  } catch (err) { next(err); }
+};
+
 export const trackClick = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     await prisma.projectClick.create({ data: { projectId: String(req.params.id) } });

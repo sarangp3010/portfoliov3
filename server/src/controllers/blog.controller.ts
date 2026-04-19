@@ -92,3 +92,12 @@ export const deletePost = async (req: Request, res: Response, next: NextFunction
     res.json({ success: true });
   } catch (err) { next(err); }
 };
+
+export const deleteAllPosts = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const result = await prisma.blogPost.deleteMany();
+    await cacheDeletePattern('posts:');
+    await cacheDeletePattern('blog:');
+    res.json({ success: true, count: result.count });
+  } catch (err) { next(err); }
+};

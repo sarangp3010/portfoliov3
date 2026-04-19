@@ -39,6 +39,13 @@ export const deleteService = async (req: Request, res: Response, next: NextFunct
   } catch (err) { next(err); }
 };
 
+export const deleteAllServices = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const result = await prisma.service.deleteMany();
+    res.json({ success: true, count: result.count, message: 'Deleted' });
+  } catch (err) { next(err); }
+};
+
 // ─── Testimonials ────────────────────────────────────────────────────────────
 export const getTestimonials = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -65,6 +72,13 @@ export const deleteTestimonial = async (req: Request, res: Response, next: NextF
   try {
     await prisma.testimonial.delete({ where: { id: String(req.params.id) } });
     res.json({ success: true, message: 'Deleted' });
+  } catch (err) { next(err); }
+};
+
+export const deleteAllTestimonials = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const result = await prisma.testimonial.deleteMany();
+    res.json({ success: true, count: result.count, message: 'Deleted' });
   } catch (err) { next(err); }
 };
 

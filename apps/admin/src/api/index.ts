@@ -14,6 +14,7 @@ export const getProjects = () => api.get('/projects');
 export const createProject = (data: Record<string, unknown>) => api.post('/projects', data);
 export const updateProject = (id: string, data: Record<string, unknown>) => api.put(`/projects/${id}`, data);
 export const deleteProject = (id: string) => api.delete(`/projects/${id}`);
+export const deleteAllProjects = () => api.delete('/projects');
 export const trackProjectClick = (id: string) => api.post(`/projects/${id}/click`);
 
 // Blog
@@ -23,18 +24,21 @@ export const getTags = () => api.get('/blog/tags');
 export const createPost = (data: Record<string, unknown>) => api.post('/blog', data);
 export const updatePost = (id: string, data: Record<string, unknown>) => api.put(`/blog/${id}`, data);
 export const deletePost = (id: string) => api.delete(`/blog/${id}`);
+export const deleteAllPosts = () => api.delete('/blog');
 
 // Services
 export const getServices = () => api.get('/services');
 export const createService = (data: Record<string, unknown>) => api.post('/services', data);
 export const updateService = (id: string, data: Record<string, unknown>) => api.put(`/services/${id}`, data);
 export const deleteService = (id: string) => api.delete(`/services/${id}`);
+export const deleteAllServices = () => api.delete('/services');
 
 // Testimonials
 export const getTestimonials = () => api.get('/testimonials');
 export const createTestimonial = (data: Record<string, unknown>) => api.post('/testimonials', data);
 export const updateTestimonial = (id: string, data: Record<string, unknown>) => api.put(`/testimonials/${id}`, data);
 export const deleteTestimonial = (id: string) => api.delete(`/testimonials/${id}`);
+export const deleteAllTestimonials = () => api.delete('/testimonials');
 
 // Resume
 export const getActiveResume = () => api.get('/resume');

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { getTestimonials, createTestimonial, updateTestimonial, deleteTestimonial } from '../../api';
+import { getTestimonials, createTestimonial, updateTestimonial, deleteTestimonial, deleteAllTestimonials } from '../../api';
 import { Testimonial } from '../../types';
 import { Modal } from '../../components/ui/Modal';
 import { Spinner } from '../../components/ui/Spinner';
@@ -37,6 +37,8 @@ export default function TestimonialsManager() {
   const [err, setErr] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
   const { toast, showToast } = useToast();
 
   const load = useCallback(() => {
@@ -77,6 +79,18 @@ export default function TestimonialsManager() {
     finally { setDeleting(false); }
   };
 
+  const handleDeleteAll = async () => {
+    try {
+      setDeletingAll(true);
+      const response = await deleteAllTestimonials();
+      setDeleteAllOpen(false);
+      load();
+      showToast(`Removed ${response.data.count ?? 0} testimonials`);
+    }
+    catch (e: any) { showToast(e.response?.data?.error ?? 'Remove all failed', 'error'); }
+    finally { setDeletingAll(false); }
+  };
+
   return (
     <>
       <Helmet><title>Testimonials Manager — Admin</title></Helmet>
@@ -86,7 +100,10 @@ export default function TestimonialsManager() {
             <h1 className="font-display text-3xl font-bold text-white">Testimonials</h1>
             <p className="text-slate-500 mt-1">{items.length} testimonials · {items.filter(t => t.featured).length} featured</p>
           </div>
-          <button onClick={openNew} className="btn-primary">+ Add Testimonial</button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setDeleteAllOpen(true)} disabled={items.length === 0} className="btn-danger disabled:opacity-50">Remove All</button>
+            <button onClick={openNew} className="btn-primary">+ Add Testimonial</button>
+          </div>
         </div>
 
         {loading ? (
@@ -203,6 +220,16 @@ export default function TestimonialsManager() {
           <div className="flex justify-end gap-3">
             <button onClick={() => setDeleteId(null)} className="btn-ghost">Cancel</button>
             <button onClick={handleDelete} disabled={deleting} className="btn-danger disabled:opacity-60">{deleting ? 'Deleting…' : 'Delete'}</button>
+          </div>
+        </div>
+      </Modal>
+      <Modal open={deleteAllOpen} onClose={() => setDeleteAllOpen(false)} title="Remove All Testimonials" size="sm">
+        <div className="p-6">
+          <p className="text-slate-400 mb-2">This will permanently delete all testimonials at once.</p>
+          <p className="text-red-400/90 text-sm mb-6">This action cannot be undone.</p>
+          <div className="flex justify-end gap-3">
+            <button onClick={() => setDeleteAllOpen(false)} className="btn-ghost">Cancel</button>
+            <button onClick={handleDeleteAll} disabled={deletingAll} className="btn-danger disabled:opacity-60">{deletingAll ? 'Removing…' : 'Remove All'}</button>
           </div>
         </div>
       </Modal>

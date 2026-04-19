@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { getPosts, createPost, updatePost, deletePost } from '../../api';
+import { getPosts, createPost, updatePost, deletePost, deleteAllPosts } from '../../api';
 import { BlogPost } from '../../types';
 import { Modal } from '../../components/ui/Modal';
 import { Spinner } from '../../components/ui/Spinner';
@@ -26,6 +26,8 @@ export default function BlogManager() {
   const [err, setErr] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
   const { toast, showToast } = useToast();
   const [tab, setTab] = useState<'all' | 'published' | 'draft'>('all');
 
@@ -78,6 +80,18 @@ export default function BlogManager() {
     finally { setDeleting(false); }
   };
 
+  const handleDeleteAll = async () => {
+    try {
+      setDeletingAll(true);
+      const response = await deleteAllPosts();
+      setDeleteAllOpen(false);
+      load();
+      showToast(`Removed ${response.data.count ?? 0} posts`);
+    }
+    catch (e: any) { showToast(e.response?.data?.error ?? 'Remove all failed', 'error'); }
+    finally { setDeletingAll(false); }
+  };
+
   const filtered = posts.filter(p =>
     tab === 'published' ? p.published : tab === 'draft' ? !p.published : true
   );
@@ -92,7 +106,10 @@ export default function BlogManager() {
             <h1 className="font-display text-3xl font-bold text-white">Blog</h1>
             <p className="text-slate-500 mt-1">{posts.length} total posts</p>
           </div>
-          <button onClick={openNew} className="btn-primary">+ New Post</button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setDeleteAllOpen(true)} disabled={posts.length === 0} className="btn-danger disabled:opacity-50">Remove All</button>
+            <button onClick={openNew} className="btn-primary">+ New Post</button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -226,6 +243,16 @@ export default function BlogManager() {
           <div className="flex justify-end gap-3">
             <button onClick={() => setDeleteId(null)} className="btn-ghost">Cancel</button>
             <button onClick={handleDelete} disabled={deleting} className="btn-danger disabled:opacity-60">{deleting ? 'Deleting…' : 'Delete Post'}</button>
+          </div>
+        </div>
+      </Modal>
+      <Modal open={deleteAllOpen} onClose={() => setDeleteAllOpen(false)} title="Remove All Posts" size="sm">
+        <div className="p-6">
+          <p className="text-slate-400 mb-2">This will permanently delete all blog posts at once.</p>
+          <p className="text-red-400/90 text-sm mb-6">This action cannot be undone.</p>
+          <div className="flex justify-end gap-3">
+            <button onClick={() => setDeleteAllOpen(false)} className="btn-ghost">Cancel</button>
+            <button onClick={handleDeleteAll} disabled={deletingAll} className="btn-danger disabled:opacity-60">{deletingAll ? 'Removing…' : 'Remove All'}</button>
           </div>
         </div>
       </Modal>

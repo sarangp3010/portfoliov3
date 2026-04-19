@@ -6,11 +6,11 @@ import { config } from '../config/index.js';
 import { authenticate, adminOnly, customerAuth, optionalAuth, eitherAuth } from '../middleware/auth.js';
 import { login, me, changePassword } from '../controllers/auth.controller.js';
 import { getProfile, updateProfile } from '../controllers/profile.controller.js';
-import { getProjects, getProject, createProject, updateProject, deleteProject, trackClick } from '../controllers/project.controller.js';
-import { getPosts, getPost, getTags, createPost, updatePost, deletePost } from '../controllers/blog.controller.js';
+import { getProjects, getProject, createProject, updateProject, deleteProject, deleteAllProjects, trackClick } from '../controllers/project.controller.js';
+import { getPosts, getPost, getTags, createPost, updatePost, deletePost, deleteAllPosts } from '../controllers/blog.controller.js';
 import {
-  getServices, createService, updateService, deleteService,
-  getTestimonials, createTestimonial, updateTestimonial, deleteTestimonial,
+  getServices, createService, updateService, deleteService, deleteAllServices,
+  getTestimonials, createTestimonial, updateTestimonial, deleteTestimonial, deleteAllTestimonials,
   getActiveResume, getAllResumes, uploadResume, downloadResume, setActiveResume, deleteResume,
   submitInquiry, getInquiries, updateInquiryStatus, deleteInquiry,
 } from '../controllers/content.controller.js';
@@ -76,6 +76,7 @@ export const createRouter = () => {
   r.get('/projects/:id', getProject);
   r.post('/projects', ...admin, createProject);
   r.put('/projects/:id', ...admin, updateProject);
+  r.delete('/projects', ...admin, deleteAllProjects);
   r.delete('/projects/:id', ...admin, deleteProject);
   r.post('/projects/:id/click', trackClick);
 
@@ -85,18 +86,21 @@ export const createRouter = () => {
   r.get('/blog/:slug', getPost);
   r.post('/blog', ...admin, createPost);
   r.put('/blog/:id', ...admin, updatePost);
+  r.delete('/blog', ...admin, deleteAllPosts);
   r.delete('/blog/:id', ...admin, deletePost);
 
   // ─── Services ─────────────────────────────────────────────────────────────
   r.get('/services', getServices);
   r.post('/services', ...admin, createService);
   r.put('/services/:id', ...admin, updateService);
+  r.delete('/services', ...admin, deleteAllServices);
   r.delete('/services/:id', ...admin, deleteService);
 
   // ─── Testimonials ─────────────────────────────────────────────────────────
   r.get('/testimonials', getTestimonials);
   r.post('/testimonials', ...admin, createTestimonial);
   r.put('/testimonials/:id', ...admin, updateTestimonial);
+  r.delete('/testimonials', ...admin, deleteAllTestimonials);
   r.delete('/testimonials/:id', ...admin, deleteTestimonial);
 
   // ─── Resume ───────────────────────────────────────────────────────────────

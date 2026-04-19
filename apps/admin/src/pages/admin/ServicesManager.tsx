@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { getServices, createService, updateService, deleteService } from '../../api';
+import { getServices, createService, updateService, deleteService, deleteAllServices } from '../../api';
 import { Service } from '../../types';
 import { Modal } from '../../components/ui/Modal';
 import { Spinner } from '../../components/ui/Spinner';
@@ -22,6 +22,8 @@ export default function ServicesManager() {
   const [err, setErr] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
   const { toast, showToast } = useToast();
 
   const load = useCallback(() => {
@@ -68,6 +70,18 @@ export default function ServicesManager() {
     finally { setDeleting(false); }
   };
 
+  const handleDeleteAll = async () => {
+    try {
+      setDeletingAll(true);
+      const response = await deleteAllServices();
+      setDeleteAllOpen(false);
+      load();
+      showToast(`Removed ${response.data.count ?? 0} services`);
+    }
+    catch (e: any) { showToast(e.response?.data?.error ?? 'Remove all failed', 'error'); }
+    finally { setDeletingAll(false); }
+  };
+
   return (
     <>
       <Helmet><title>Services Manager — Admin</title></Helmet>
@@ -77,7 +91,10 @@ export default function ServicesManager() {
             <h1 className="font-display text-3xl font-bold text-white">Services</h1>
             <p className="text-slate-500 mt-1">Manage your service tiers and pricing</p>
           </div>
-          <button onClick={openNew} className="btn-primary">+ Add Service</button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setDeleteAllOpen(true)} disabled={items.length === 0} className="btn-danger disabled:opacity-50">Remove All</button>
+            <button onClick={openNew} className="btn-primary">+ Add Service</button>
+          </div>
         </div>
 
         {loading ? (
@@ -197,6 +214,16 @@ export default function ServicesManager() {
           <div className="flex justify-end gap-3">
             <button onClick={() => setDeleteId(null)} className="btn-ghost">Cancel</button>
             <button onClick={handleDelete} disabled={deleting} className="btn-danger disabled:opacity-60">{deleting ? 'Deleting…' : 'Delete Service'}</button>
+          </div>
+        </div>
+      </Modal>
+      <Modal open={deleteAllOpen} onClose={() => setDeleteAllOpen(false)} title="Remove All Services" size="sm">
+        <div className="p-6">
+          <p className="text-slate-400 mb-2">This will permanently delete all services at once.</p>
+          <p className="text-red-400/90 text-sm mb-6">This action cannot be undone.</p>
+          <div className="flex justify-end gap-3">
+            <button onClick={() => setDeleteAllOpen(false)} className="btn-ghost">Cancel</button>
+            <button onClick={handleDeleteAll} disabled={deletingAll} className="btn-danger disabled:opacity-60">{deletingAll ? 'Removing…' : 'Remove All'}</button>
           </div>
         </div>
       </Modal>
