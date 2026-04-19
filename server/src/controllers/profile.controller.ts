@@ -1,10 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { cached, cacheDelete } from '../services/cache.service.js';
 
 export const getProfile = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const profile = await prisma.profile.findFirst();
+    const profile = await cached('profile:public', () => prisma.profile.findFirst(), 10 * 60_000);
     if (!profile) throw new AppError('Profile not found', 404);
     res.json({ success: true, data: profile });
   } catch (err) { next(err); }
@@ -21,6 +22,7 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
     const profile = existing
       ? await prisma.profile.update({ where: { id: existing.id }, data })
       : await prisma.profile.create({ data });
+    await cacheDelete('profile:public');
     res.json({ success: true, data: profile });
   } catch (err) { next(err); }
 };

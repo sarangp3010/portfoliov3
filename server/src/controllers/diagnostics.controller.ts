@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { getDiagnostics, getAnalyticsEventLog, getNavFlows, getSmartInsights } from '../services/diagnostics.service.js';
 import { getActiveSummary } from '../services/presence.service.js';
 import { prisma } from '../config/prisma.js';
+import { cached } from '../services/cache.service.js';
 
 export const diagnosticsOverview = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -20,14 +21,16 @@ export const eventLog = async (req: Request, res: Response, next: NextFunction):
 export const navFlows = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const days = parseInt(req.query.days as string ?? '30', 10);
-    res.json({ success: true, data: await getNavFlows(days) });
+    const data = await cached(`analytics:flows:${days}`, () => getNavFlows(days), 2 * 60_000);
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 };
 
 export const smartInsights = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const days = parseInt(req.query.days as string ?? '30', 10);
-    res.json({ success: true, data: await getSmartInsights(days) });
+    const data = await cached(`analytics:insights:${days}`, () => getSmartInsights(days), 2 * 60_000);
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 };
 

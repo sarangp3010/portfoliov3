@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { PublicLayout } from './components/layout/PublicLayout';
 import { PageLoader } from './components/ui/Spinner';
@@ -13,6 +13,7 @@ const Testimonials   = lazy(() => import('./pages/public/Testimonials'));
 const Resume         = lazy(() => import('./pages/public/Resume'));
 const PaymentSuccess = lazy(() => import('./pages/public/PaymentSuccess'));
 const PaymentCancel  = lazy(() => import('./pages/public/PaymentCancel'));
+const NotFound       = lazy(() => import('./pages/public/NotFound'));
 
 function TrackedApp() {
   useTracker();
@@ -29,7 +30,7 @@ function TrackedApp() {
           <Route path="/payment/success" element={<PaymentSuccess />} />
           <Route path="/payment/cancel"  element={<PaymentCancel />} />
         </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
   );

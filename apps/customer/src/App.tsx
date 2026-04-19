@@ -14,6 +14,7 @@ const ContactAdmin      = lazy(() => import('./pages/customer/ContactAdmin'));
 const Profile           = lazy(() => import('./pages/customer/Profile'));
 const PaymentSuccess    = lazy(() => import('./pages/customer/PaymentSuccess'));
 const NotificationsPage = lazy(() => import('./pages/customer/NotificationsPage'));
+const NotFound          = lazy(() => import('./pages/customer/NotFound'));
 
 function Loader() {
   return (
@@ -53,7 +54,7 @@ function AppRoutes() {
         </Route>
 
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
   );

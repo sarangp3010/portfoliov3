@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/ui/ProtectedRoute';
@@ -27,6 +27,7 @@ const CustomersManager    = lazy(() => import('./pages/admin/CustomersManager'))
 const EmailTemplatesManager = lazy(() => import('./pages/admin/EmailTemplatesManager'));
 const NotificationsPage     = lazy(() => import('./pages/admin/NotificationsPage'));
 const PageSectionsManager   = lazy(() => import('./pages/admin/PageSectionsManager'));
+const NotFound              = lazy(() => import('./pages/admin/NotFound'));
 
 export default function App() {
   return (
@@ -57,7 +58,7 @@ export default function App() {
               <Route path="theme"              element={<ThemeManager />} />
               <Route path="settings"           element={<Settings />} />
             </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </ThemeProvider>

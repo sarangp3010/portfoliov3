@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { prisma } from '../config/prisma.js';
 import { config } from '../config/index.js';
+import { cacheDeletePattern } from './cache.service.js';
 
 // Lazy-init Stripe so the server starts even without keys configured
 let _stripe: Stripe | null = null;
@@ -89,6 +90,10 @@ export const createCheckoutSession = async (params: CheckoutParams) => {
       updatedAt: new Date(),
     },
   });
+  await Promise.all([
+    cacheDeletePattern('payments:list:'),
+    cacheDeletePattern('payments:analytics:'),
+  ]);
 
   return { sessionId: session.id, url: session.url, stripeSessionId: session.id, publishableKey: config.stripe.publishableKey };
 };
@@ -127,6 +132,10 @@ export const handleWebhook = async (rawBody: Buffer, signature: string) => {
           updatedAt: new Date(),
         },
       });
+      await Promise.all([
+        cacheDeletePattern('payments:list:'),
+        cacheDeletePattern('payments:analytics:'),
+      ]);
 
       // Send SMS if customer has phone number
       try {
@@ -177,6 +186,10 @@ export const handleWebhook = async (rawBody: Buffer, signature: string) => {
         where: { stripeSessionId: session.id },
         data: { status: 'CANCELLED', updatedAt: new Date() },
       });
+      await Promise.all([
+        cacheDeletePattern('payments:list:'),
+        cacheDeletePattern('payments:analytics:'),
+      ]);
       // Notify customer payment didn't go through
       try {
         const { notifyCustomer } = await import('./notification.service.js');
@@ -196,6 +209,10 @@ export const handleWebhook = async (rawBody: Buffer, signature: string) => {
           where: { stripePaymentIntent: charge.payment_intent },
           data:  { status: 'REFUNDED', updatedAt: new Date() },
         });
+        await Promise.all([
+          cacheDeletePattern('payments:list:'),
+          cacheDeletePattern('payments:analytics:'),
+        ]);
       }
     }
 
