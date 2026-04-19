@@ -11,8 +11,8 @@
 #     admin/     ← admin.sarangpatel.tech
 #     customer/  ← customer.sarangpatel.tech
 #
-# Netlify serves `dist/` as the publish root. Host-based rewrite rules below
-# map each domain to the correct subfolder.
+# Netlify serves `dist/` as the publish root. Domain-level rewrite rules below
+# map each hostname to the correct subfolder and SPA shell.
 
 [build]
   # Run from repo root — installs all workspaces then builds all 3 apps
@@ -25,50 +25,67 @@
   NODE_VERSION = "20"
 
 # ── Subdomain routing ─────────────────────────────────────────────────────────
-# Netlify matches redirects by path, with host-specific conditions layered on
-# top. Static asset rules come before SPA shell fallbacks.
+# Static asset rewrites must come before SPA shell fallbacks.
 
 # admin.sarangpatel.tech static assets under /admin/*
 [[redirects]]
-  from    = "/admin/*"
-  to      = "/admin/:splat"
-  status  = 200
-  conditions = { Host = ["admin.sarangpatel.tech"] }
+  from   = "https://admin.sarangpatel.tech/admin/*"
+  to     = "/admin/:splat"
+  status = 200
 
 # admin.sarangpatel.tech app shell
 [[redirects]]
-  from    = "/*"
-  to      = "/admin/index.html"
-  status  = 200
-  conditions = { Host = ["admin.sarangpatel.tech"] }
+  from   = "https://admin.sarangpatel.tech/*"
+  to     = "/admin/index.html"
+  status = 200
 
 # customer.sarangpatel.tech static assets under /customer/*
 [[redirects]]
-  from    = "/customer/*"
-  to      = "/customer/:splat"
-  status  = 200
-  conditions = { Host = ["customer.sarangpatel.tech"] }
+  from   = "https://customer.sarangpatel.tech/customer/*"
+  to     = "/customer/:splat"
+  status = 200
 
 # customer.sarangpatel.tech app shell
 [[redirects]]
-  from    = "/*"
-  to      = "/customer/index.html"
-  status  = 200
-  conditions = { Host = ["customer.sarangpatel.tech"] }
+  from   = "https://customer.sarangpatel.tech/*"
+  to     = "/customer/index.html"
+  status = 200
 
 # public.sarangpatel.tech static assets under /public/*
 [[redirects]]
-  from    = "/public/*"
-  to      = "/public/:splat"
-  status  = 200
-  conditions = { Host = ["public.sarangpatel.tech", "sarangpatel.tech", "www.sarangpatel.tech"] }
+  from   = "https://public.sarangpatel.tech/public/*"
+  to     = "/public/:splat"
+  status = 200
 
-# public.sarangpatel.tech and apex app shell
+# public.sarangpatel.tech app shell
 [[redirects]]
-  from    = "/*"
-  to      = "/public/index.html"
-  status  = 200
-  conditions = { Host = ["public.sarangpatel.tech", "sarangpatel.tech", "www.sarangpatel.tech"] }
+  from   = "https://public.sarangpatel.tech/*"
+  to     = "/public/index.html"
+  status = 200
+
+# sarangpatel.tech static assets under /public/*
+[[redirects]]
+  from   = "https://sarangpatel.tech/public/*"
+  to     = "/public/:splat"
+  status = 200
+
+# sarangpatel.tech app shell
+[[redirects]]
+  from   = "https://sarangpatel.tech/*"
+  to     = "/public/index.html"
+  status = 200
+
+# www.sarangpatel.tech static assets under /public/*
+[[redirects]]
+  from   = "https://www.sarangpatel.tech/public/*"
+  to     = "/public/:splat"
+  status = 200
+
+# www.sarangpatel.tech app shell
+[[redirects]]
+  from   = "https://www.sarangpatel.tech/*"
+  to     = "/public/index.html"
+  status = 200
 
 # ── Security headers for all responses ───────────────────────────────────────
 [[headers]]
