@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { cached, cacheDeletePattern } from '../services/cache.service.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -90,12 +91,15 @@ export const DEFAULT_SECTIONS: DefaultSection[] = [
 export const getPublicSections = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const page = String(req.params.page);
-    const sections = await prisma.pageSection.findMany({
-      where: { page, isVisible: true },
-      orderBy: { order: 'asc' },
-    });
-    const defaults = DEFAULT_SECTIONS.filter(s => s.page === page);
-    res.json({ success: true, data: sections.length > 0 ? sections : defaults });
+    const data = await cached(`sections:public:${page}`, async () => {
+      const sections = await prisma.pageSection.findMany({
+        where: { page, isVisible: true },
+        orderBy: { order: 'asc' },
+      });
+      const defaults = DEFAULT_SECTIONS.filter(s => s.page === page);
+      return sections.length > 0 ? sections : defaults;
+    }, 5 * 60_000);
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 };
 
@@ -190,6 +194,7 @@ export const createSection = async (req: Request, res: Response, next: NextFunct
         order:       order     ? Number(order)     : 0,
       },
     });
+    await cacheDeletePattern(`sections:public:${String(page)}`);
     res.status(201).json({ success: true, data: section });
   } catch (err) { next(err); }
 };
@@ -215,6 +220,7 @@ export const updateSection = async (req: Request, res: Response, next: NextFunct
     }
 
     const section = await prisma.pageSection.update({ where: { id: String(req.params.id) }, data });
+    await cacheDeletePattern(`sections:public:${existing.page}`);
     res.json({ success: true, data: section });
   } catch (err) { next(err); }
 };
@@ -223,7 +229,10 @@ export const updateSection = async (req: Request, res: Response, next: NextFunct
 
 export const deleteSection = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const existing = await prisma.pageSection.findUnique({ where: { id: String(req.params.id) } });
+    if (!existing) throw new AppError('Section not found', 404);
     await prisma.pageSection.delete({ where: { id: String(req.params.id) } });
+    await cacheDeletePattern(`sections:public:${existing.page}`);
     res.json({ success: true });
   } catch (err) { next(err); }
 };
@@ -234,11 +243,17 @@ export const reorderSections = async (req: Request, res: Response, next: NextFun
   try {
     const { order } = req.body as { order: { id: string; order: number }[] };
     if (!Array.isArray(order)) throw new AppError('order array required', 400);
+    const ids = order.map(({ id }) => id);
+    const sections = ids.length > 0
+      ? await prisma.pageSection.findMany({ where: { id: { in: ids } }, select: { page: true } })
+      : [];
     await Promise.all(
       order.map(({ id, order: pos }) =>
         prisma.pageSection.update({ where: { id }, data: { order: pos } })
       )
     );
+    const pages = [...new Set(sections.map(section => section.page))];
+    await Promise.all(pages.map(page => cacheDeletePattern(`sections:public:${page}`)));
     res.json({ success: true });
   } catch (err) { next(err); }
 };
@@ -253,6 +268,7 @@ export const toggleSection = async (req: Request, res: Response, next: NextFunct
       where: { id: String(req.params.id) },
       data:  { isVisible: !existing.isVisible },
     });
+    await cacheDeletePattern(`sections:public:${existing.page}`);
     res.json({ success: true, data: section });
   } catch (err) { next(err); }
 };

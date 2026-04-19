@@ -8,10 +8,11 @@ import {
 } from '../services/payment.service.js';
 import { prisma } from '../config/prisma.js';
 import { config } from '../config/index.js';
+import { cached } from '../services/cache.service.js';
 
 export const getPlans = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const plans = await getServicePlans();
+    const plans = await cached('payments:plans', () => getServicePlans(), 5 * 60_000);
     res.json({ success: true, data: plans });
   } catch (err) { next(err); }
 };
@@ -64,7 +65,8 @@ export const paymentStatus = async (req: Request, res: Response, next: NextFunct
 export const paymentAnalytics = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const days = parseInt(req.query.days as string ?? '30', 10);
-    res.json({ success: true, data: await getPaymentAnalytics(days) });
+    const data = await cached(`payments:analytics:${days}`, () => getPaymentAnalytics(days), 2 * 60_000);
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 };
 
@@ -74,22 +76,29 @@ export const listPayments = async (req: Request, res: Response, next: NextFuncti
     const source = req.query.source as string | undefined; // 'direct' | 'inquiry' | undefined
     const limit  = 20;
     const where  = source ? { paymentSource: source } : {};
-    const [payments, total] = await Promise.all([
-      prisma.payment.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-        select: {
-          id: true, stripeSessionId: true, amount: true, currency: true,
-          status: true, type: true, paymentSource: true, planId: true,
-          description: true, customerName: true, customerEmail: true,
-          serviceName: true, inquiryId: true, createdAt: true,
-        },
-      }),
-      prisma.payment.count({ where }),
-    ]);
-    res.json({ success: true, data: { payments, total, page, pages: Math.ceil(total / limit) } });
+    const data = await cached(
+      `payments:list:${page}:${source ?? 'all'}`,
+      async () => {
+        const [payments, total] = await Promise.all([
+          prisma.payment.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            skip: (page - 1) * limit,
+            take: limit,
+            select: {
+              id: true, stripeSessionId: true, amount: true, currency: true,
+              status: true, type: true, paymentSource: true, planId: true,
+              description: true, customerName: true, customerEmail: true,
+              serviceName: true, inquiryId: true, createdAt: true,
+            },
+          }),
+          prisma.payment.count({ where }),
+        ]);
+        return { payments, total, page, pages: Math.ceil(total / limit) };
+      },
+      60_000,
+    );
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 };
 

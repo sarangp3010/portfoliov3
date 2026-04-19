@@ -23,6 +23,7 @@ export const config = {
     adminEmail: process.env.ADMIN_EMAIL ?? process.env.SMTP_USER ?? '',
   },
   clientUrl: process.env.CLIENT_URL ?? 'http://localhost:5173',
+  publicUrl: process.env.PUBLIC_URL ?? process.env.CLIENT_URL ?? 'http://localhost:5173',
   customerUrl: process.env.CUSTOMER_URL ?? 'http://localhost:3002',
   uploadDir: process.env.UPLOAD_DIR ?? './uploads',
   stripe: {
