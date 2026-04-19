@@ -1,70 +1,62 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { getInquiries, updateInquiryStatus, deleteInquiry } from '../../api';
 import { Inquiry } from '../../types';
 import { Modal } from '../../components/ui/Modal';
 import { Spinner } from '../../components/ui/Spinner';
 import { useToast, Toast } from '../../hooks/useToast';
+import { useInquiriesQuery } from '../../hooks/queries/useInquiriesQuery';
+import { useUpdateInquiryStatusMutation } from '../../hooks/mutations/useUpdateInquiryStatusMutation';
+import { useDeleteInquiryMutation } from '../../hooks/mutations/useDeleteInquiryMutation';
 
 type StatusFilter = 'ALL' | 'UNREAD' | 'READ' | 'REPLIED' | 'ARCHIVED';
-
-const STATUS_MAP: Record<string, string> = {
-  UNREAD: 'badge-red', READ: 'badge-blue', REPLIED: 'badge-green', ARCHIVED: 'badge-yellow',
-};
 
 const STATUS_OPTIONS: Inquiry['status'][] = ['UNREAD', 'READ', 'REPLIED', 'ARCHIVED'];
 
 export default function InquiriesManager() {
-  const [items, setItems] = useState<Inquiry[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<StatusFilter>('ALL');
   const [selected, setSelected] = useState<Inquiry | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const { toast, showToast } = useToast();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const status = filter === 'ALL' ? undefined : filter;
+  const { data, isLoading, isFetching } = useInquiriesQuery(page, status);
+  const updateStatusMutation = useUpdateInquiryStatusMutation();
+  const deleteMutation = useDeleteInquiryMutation();
 
-  const load = useCallback(() => {
-    setLoading(true);
-    const params = { page, status: filter === 'ALL' ? undefined : filter };
-    getInquiries(params)
-      .then(r => { setItems(r.data.data.inquiries); setTotal(r.data.data.total); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [page, filter]);
-
-  useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [filter]);
+  useEffect(() => {
+    if (!selected) return;
+    const next = data?.data.inquiries.find(inquiry => inquiry.id === selected.id) ?? null;
+    setSelected(next);
+  }, [data, selected?.id]);
+
+  const items = data?.data.inquiries ?? [];
+  const total = data?.data.total ?? 0;
+  const loading = isLoading;
 
   const handleStatus = async (id: string, status: Inquiry['status']) => {
     setUpdatingId(id);
     try {
-      await updateInquiryStatus(id, status);
-      setItems(prev => prev.map(i => i.id === id ? { ...i, status } : i));
-      if (selected?.id === id) setSelected(s => s ? { ...s, status } : s);
+      await updateStatusMutation.mutateAsync({ id, status });
     } catch (e: any) { showToast(e.response?.data?.error ?? 'Failed to update status', 'error'); }
     finally { setUpdatingId(null); }
   };
 
-  const [deleting, setDeleting] = useState(false);
-
   const handleDelete = async () => {
     if (!deleteId) return;
-    setDeleting(true);
     try {
-      await deleteInquiry(deleteId);
+      await deleteMutation.mutateAsync(deleteId);
       setDeleteId(null);
       if (selected?.id === deleteId) setSelected(null);
-      load();
       showToast('Inquiry deleted');
     } catch (e: any) { showToast(e.response?.data?.error ?? 'Delete failed', 'error'); }
-    finally { setDeleting(false); }
   };
 
   const totalPages = Math.ceil(total / 20);
-  const unreadCount = items.filter(i => i.status === 'UNREAD').length;
+  const unreadCount = useMemo(() => items.filter(i => i.status === 'UNREAD').length, [items]);
+  const deleting = deleteMutation.isPending;
 
   return (
     <>
@@ -93,6 +85,9 @@ export default function InquiriesManager() {
           <div className="flex justify-center py-20"><Spinner size="lg" /></div>
         ) : (
           <>
+            {isFetching && (
+              <div className="mb-4 text-xs text-slate-500">Refreshing inquiries…</div>
+            )}
             <div className="card overflow-hidden mb-4">
               <table className="data-table">
                 <thead><tr>

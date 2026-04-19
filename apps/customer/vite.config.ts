@@ -1,8 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({
-  base: '/customer/',
+export default defineConfig(({ command }) => ({
+  // In local dev the customer app is mounted at the root of customer.localhost.
+  // Production static hosting still emits assets under /customer/.
+  base: command === 'serve' ? '/' : '/customer/',
   plugins: [react()],
   server: {
     port: 3002,
@@ -20,4 +22,4 @@ export default defineConfig({
     sourcemap: false,
     chunkSizeWarningLimit: 1000,
   },
-});
+}));
