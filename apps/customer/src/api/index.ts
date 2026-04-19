@@ -1,8 +1,13 @@
 import axios from 'axios';
 
+const rawApiUrl = import.meta.env.VITE_API_URL?.trim();
+const apiBaseURL = rawApiUrl
+  ? `${rawApiUrl.replace(/\/+$/, '').replace(/\/api$/i, '')}/api`
+  : '/api';
+
 export const api = axios.create({
   // Relative path — proxied to Express :5000 via Vite (dev) or nginx (prod)
-  baseURL: '/api',
+  baseURL: apiBaseURL,
   headers: { 'Content-Type': 'application/json' },
 });
 
