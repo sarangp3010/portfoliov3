@@ -1,165 +1,198 @@
 # Analytics System
 
-## Design Philosophy
+## Overview
 
-The analytics system tracks visitor behavior without third-party services and without relying on browser cookies. Every visitor gets a session ID generated client-side. Events are sent to the application's own API and stored in PostgreSQL.
+The analytics system is first-party, application-owned analytics. It does not rely on a third-party SaaS dashboard and is tightly integrated into the public experience, admin insights, and session viewer.
 
-**Privacy:** No personal information is required. IP addresses are stored only for geo-lookup and immediately discarded from memory. Browser fingerprinting is not used.
+Key traits:
 
----
+- event tracking is sent to the platform's own API
+- analytics data is stored in PostgreSQL
+- page and content interactions are modeled separately
+- active visitor presence is supported
+- admin diagnostics and smart insights build on top of the same data model
 
-## Event Architecture
+## Data Model
 
-### Event Flow
+The analytics subsystem spans these models:
 
+- `Visitor`
+- `PageView`
+- `AnalyticsEvent`
+- `VisitorSession`
+- `ContentEvent`
+- `ActiveVisitor`
+
+This split matters:
+
+- `AnalyticsEvent` holds higher-level event types
+- `ContentEvent` captures richer content-aware interactions
+- `VisitorSession` makes navigation and engagement analysis possible
+- `ActiveVisitor` powers near-real-time presence summaries
+
+## Event Flow
+
+```text
+User interaction
+  -> tracking hook / explicit tracker function
+  -> POST /api/analytics/track
+  -> analytics.controller.ts
+  -> analytics.service.ts
+       -> upsert visitor
+       -> update visitor session
+       -> record page view
+       -> record analytics event
+       -> record content event
+       -> update presence when enabled
 ```
-Visitor action (page view, click, download)
-       │
-       ▼
-useTracker hook or named tracker function
-       │
-       ▼ POST /api/analytics/track
-analytics.controller.ts → analytics.service.ts
-       │
-       ├── Upsert Visitor record (by sessionId)
-       ├── Log AnalyticsEvent (type + metadata)
-       ├── Update or create VisitorSession
-       └── Log ContentEvent (for content-specific events)
-```
 
-### Event Types
+## Current Event Types
 
-**AnalyticsEvent types** (high-level):
+### `AnalyticsEvent` enum
 
-| Type | Fired When |
-|---|---|
-| `PAGE_VIEW` | Route change (non-admin) |
-| `RESUME_DOWNLOAD` | Resume download initiated |
-| `PROJECT_CLICK` | Project card GitHub/demo clicked |
-| `CONTACT_SUBMIT` | Inquiry form submitted |
-| `BLOG_READ` | Blog post opened |
-| `SERVICE_INQUIRY` | Service selected from pricing |
-| `EXTERNAL_LINK` | External link clicked |
+The current enum includes:
 
-**ContentEventType values** (granular):
+- `PAGE_VIEW`
+- `BUTTON_CLICK`
+- `LINK_CLICK`
+- `RESUME_DOWNLOAD`
+- `PROJECT_CLICK`
+- `CONTACT_SUBMIT`
+- `BLOG_READ`
+- `SERVICE_INQUIRY`
+- `EXTERNAL_LINK`
 
-| Type | Fired When |
-|---|---|
-| `PAGE_VIEW` | Any page visited |
-| `BLOG_VIEW` | Blog post opened |
-| `BLOG_SCROLL` | User scrolls past 50% of post |
-| `PROJECT_VIEW` | Project card expanded/visited |
-| `PROJECT_GITHUB_CLICK` | GitHub link clicked on project |
-| `PROJECT_DEMO_CLICK` | Live demo link clicked |
-| `RESUME_PAGE_VISIT` | Resume page opened |
-| `RESUME_DOWNLOAD` | Download button clicked |
-| `SERVICE_PAGE_VISIT` | Services page loaded |
-| `SERVICE_INQUIRY_OPEN` | Inquiry form scroll initiated |
-| `INQUIRY_SUBMIT` | Inquiry form successfully submitted |
-| `SESSION_END` | User navigates away / closes tab |
+### `ContentEventType` enum
 
----
+The current granular content event types include:
+
+- `PAGE_VIEW`
+- `BLOG_VIEW`
+- `BLOG_SCROLL`
+- `BLOG_LINK_CLICK`
+- `BLOG_RELATED_CLICK`
+- `PROJECT_VIEW`
+- `PROJECT_GITHUB_CLICK`
+- `PROJECT_DEMO_CLICK`
+- `PROJECT_IMAGE_VIEW`
+- `RESUME_PAGE_VISIT`
+- `RESUME_DOWNLOAD`
+- `SERVICE_PAGE_VISIT`
+- `SERVICE_INQUIRY_OPEN`
+- `INQUIRY_SUBMIT`
+- `EXTERNAL_LINK`
+- `BUTTON_CLICK`
+- `SESSION_END`
 
 ## Session Tracking
 
-Each browser session generates a random `sessionId` (stored in `sessionStorage`). This means:
-- Same user across tabs = same session (as long as tab is open)
-- Page refresh = same session (sessionStorage persists)
-- New tab = new session
-- Browser close = new session next visit
+The system relies on client-generated session identifiers and server-side session records.
 
-The server creates one `VisitorSession` per `sessionId`. As events arrive:
-- `totalEvents` increments
-- `navigationPath` (array) is appended with each new page
-- `pageCount` increments on new pages
-- `sessionEnd` and `totalDuration` are set when `SESSION_END` arrives
+Current behavior:
 
----
+- session ID stored in `sessionStorage`
+- device ID stored in `localStorage`
+- visitor records updated as requests come in
+- visitor sessions track:
+  - entry page
+  - exit page
+  - navigation path
+  - page count
+  - total events
+  - duration
 
-## Deduplication (StrictMode Guard)
+This is what makes the sessions viewer, nav flows, and engagement scoring possible.
 
-React 18 StrictMode in development mounts → unmounts → remounts effects. Without deduplication, every navigation would fire 2x events.
+## Real-Time Presence
 
-Two module-level Sets handle this:
+When the `realtime_analytics` feature flag is enabled:
 
-```typescript
-const _trackedPaths  = new Set<string>();  // PAGE_VIEW dedup per path
-const _viewedSlugs   = new Set<string>();  // BLOG_VIEW dedup per slug
-```
+- the backend updates `ActiveVisitor` entries
+- admin can see active visitor counts
+- admin can see top current pages and countries
+- admin can inspect the currently active session list
 
-Each Set entry is cleaned up on effect cleanup, so navigating away and back re-fires correctly.
+This is a meaningful operational feature already implemented in the product.
 
----
+## Current Analytics Endpoints
 
-## Sessions Viewer (Admin)
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/analytics/track` | Record visitor and content events |
+| `GET /api/analytics/summary` | High-level summary metrics |
+| `GET /api/analytics/blogs` | Blog-specific analytics |
+| `GET /api/analytics/projects` | Project-specific analytics |
+| `GET /api/analytics/visitors` | Device, browser, session, and geography insights |
+| `GET /api/analytics/active` | Active visitor summary |
+| `GET /api/analytics/sessions` | Session list |
+| `GET /api/analytics/sessions/:sessionId` | Session detail timeline |
+| `GET /api/analytics/insights` | Smart insights |
+| `GET /api/analytics/flows` | Navigation flow summaries |
 
-The Sessions Viewer (`/admin/analytics/sessions`) displays sessions with an **engagement scoring system**:
+## Smart Insights
 
-| Event | Score |
-|---|---|
-| INQUIRY_SUBMIT | 10 |
-| RESUME_DOWNLOAD | 8 |
-| PROJECT_DEMO_CLICK | 6 |
-| PROJECT_GITHUB_CLICK | 5 |
-| BLOG_SCROLL | 3 |
-| BLOG_VIEW / PROJECT_VIEW | 2 |
-| SERVICE_PAGE_VISIT | 1 |
+The current smart insights implementation is important to describe correctly.
 
-Sessions are classified as:
-- **High** (≥10) — converted or highly engaged visitors
-- **Medium** (4–9) — engaged but didn't convert
-- **Low** (<4) — casual browser
+It currently:
 
----
+- compares visitor periods
+- identifies top blog and project content
+- finds top audience geography and device category
+- counts resume downloads
+- counts inquiry submits
+- formats those into color-coded insight cards
 
-## Smart Insights (Admin)
+It does **not** currently use an LLM.
 
-`/admin/insights` auto-generates human-readable insights from behavioral data:
+That means the phrase “AI-generated insights” in older docs was too strong for the actual implementation. The more accurate description is:
 
-Examples:
-- "📈 Traffic is up 34% compared to last week"
-- "🔥 Your blog post 'X' is trending with 120 views this week"
-- "💼 3 new unread inquiries need your attention"
-- "⬇ Resume downloads dropped 50% this period"
+- rule-based or deterministic insights derived from analytics data
 
-Insights are categorized as `positive`, `negative`, or `info` and displayed with color-coded cards.
+This distinction matters because true AI analytics summaries are still a strong future feature.
 
----
+## Navigation Flows
 
-## Navigation Flow Analysis
+The current `navFlows` implementation:
 
-The `navFlows` endpoint analyzes `navigationPath` arrays from VisitorSessions to identify:
-- **Top flows** — most common 2-page sequences (e.g., Home → Projects → Services)
-- **Top entry pages** — where visitors start
-- **Top exit pages** — where visitors leave
+- reads `navigationPath` arrays from `VisitorSession`
+- counts two-step transitions
+- surfaces:
+  - top flows
+  - top entry pages
+  - top exit pages
 
-This is analogous to a simplified funnel analysis.
+This gives the admin app a lightweight funnel/journey lens without a full BI platform.
 
----
+## Caching
 
-## Analytics API Reference
+Analytics endpoints are already among the best uses of the backend cache service.
 
-| Endpoint | Description |
-|---|---|
-| `POST /api/analytics/track` | Log an event |
-| `GET /api/analytics/summary?days=30` | Overview metrics |
-| `GET /api/analytics/blogs?days=30` | Blog engagement stats |
-| `GET /api/analytics/projects?days=30` | Project interaction stats |
-| `GET /api/analytics/visitors?days=30` | Session + device stats |
-| `GET /api/analytics/active` | Currently active visitors |
-| `GET /api/analytics/sessions?page=1` | Paginated session list |
-| `GET /api/analytics/sessions/:id` | Single session detail |
-| `GET /api/analytics/insights?days=30` | Smart insights |
-| `GET /api/analytics/flows?days=30` | Navigation flow analysis |
+Current cache usage includes:
 
----
+- summary metrics
+- blog analytics
+- project analytics
+- visitor insights
 
-## Admin Pollution Guard
+Short TTL caching is appropriate here because:
 
-Events from admin routes (`/admin/*`) are filtered out in `useTracker`:
+- analytics aggregations are relatively expensive
+- data does not need sub-second freshness for most admin views
+- the same queries are repeatedly requested in the dashboard
 
-```typescript
-if (pathname.startsWith('/admin')) return;
-```
+## Accuracy Notes
 
-This ensures admin visits don't inflate visitor metrics.
+When reading older docs or UI labels, keep these implementation notes in mind:
+
+- analytics is first-party and database-backed
+- active visitors are real but lightweight, not a full WebSocket real-time system
+- smart insights are currently deterministic
+- the next major upgrade would be true AI analytics summaries layered on top of the current data
+
+## Recommended Next Step
+
+The strongest next analytics feature for this codebase is:
+
+- AI analytics summaries built from the existing summary, flows, and session datasets
+
+That would give the current analytics system a more decision-oriented layer without replacing the underlying event model.

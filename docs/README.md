@@ -1,78 +1,120 @@
 # Documentation
 
-This directory contains all technical documentation for Portfolio V3.
+This directory contains the implementation-facing documentation for Portfolio V3 SaaS. It is intended to stay close to the current codebase rather than describe an idealized version of the product.
 
----
+## What Was Updated
+
+This documentation refresh brings the docs in line with the current repository state, including:
+
+- the three-app frontend layout under `apps/public`, `apps/admin`, and `apps/customer`
+- the local single-port development proxy at `dev-proxy/index.js`
+- customer portal authentication, sessions, OAuth, payments, and messaging
+- admin-side notifications, customers, email templates, and page sections
+- the current OpenAI-backed chatbot implementation and fallback behavior
+- Prisma-backed caching, analytics, diagnostics, and recent backend modules
+- the current docs roadmap in [`tasks/upcoming.md`](tasks/upcoming.md)
+
+These updates were additive and corrective. The goal was to preserve the existing docs structure while making the content more accurate and more complete.
 
 ## Structure
 
-```
+```text
 docs/
-├── README.md                           ← This file
-├── getting-started.md                  ← Clone → install → run
-├── migrations.md                       ← Database migration reference
-├── schema.md                           ← Full schema reference
+├── README.md
+├── chatbot.md
+├── customer-portal.md
+├── getting-started.md
+├── local-dev-setup.md
+├── migrations.md
+├── schema.md
+├── testing.md
+├── tasks/
+│   └── upcoming.md
 ├── architecture/
-│   ├── system.md                       ← System architecture overview
-│   ├── backend.md                      ← Server, services, middleware
-│   ├── frontend.md                     ← React, routing, design system
-│   ├── payments.md                     ← Stripe payment module
-│   └── analytics.md                    ← Analytics system deep-dive
+│   ├── analytics.md
+│   ├── backend.md
+│   ├── frontend.md
+│   ├── payments.md
+│   ├── platform.md
+│   └── system.md
 ├── public/
-│   ├── visitor-guide.md                ← Visitor features, flows, use cases
-│   └── public-documentation.pdf        ← PDF version
+│   ├── public-documentation.pdf
+│   └── visitor-guide.md
 └── admin/
-    ├── admin-guide.md                  ← Admin panel reference, use cases
-    └── admin-documentation.pdf         ← PDF version
+    ├── admin-documentation.pdf
+    └── admin-guide.md
 ```
 
----
+## Recommended Reading Order
+
+If you are new to the repository, read the docs in this order:
+
+1. [getting-started.md](getting-started.md)
+2. [architecture/platform.md](architecture/platform.md)
+3. [architecture/system.md](architecture/system.md)
+4. [architecture/backend.md](architecture/backend.md)
+5. [architecture/frontend.md](architecture/frontend.md)
+6. [customer-portal.md](customer-portal.md)
+7. [admin/admin-guide.md](admin/admin-guide.md)
+8. [chatbot.md](chatbot.md)
+9. [tasks/upcoming.md](tasks/upcoming.md)
 
 ## Architecture Docs
 
 | Document | Description |
-|---|---|
-| [architecture/system.md](architecture/system.md) | Three-tier architecture, request lifecycle, auth, deployment |
-| [architecture/backend.md](architecture/backend.md) | Express server, controllers, services, middleware, migrations |
-| [architecture/frontend.md](architecture/frontend.md) | React app, routing, context, design system, animations |
-| [architecture/payments.md](architecture/payments.md) | Stripe integration, webhook processing, receipt PDF |
-| [architecture/analytics.md](architecture/analytics.md) | Event tracking, session scoring, smart insights |
+| --- | --- |
+| [architecture/platform.md](architecture/platform.md) | High-level product topology, apps, routing, deployment surfaces |
+| [architecture/system.md](architecture/system.md) | Request lifecycle, auth flows, runtime boundaries, deployment view |
+| [architecture/backend.md](architecture/backend.md) | Express server, controllers, services, middleware, caching, modules |
+| [architecture/frontend.md](architecture/frontend.md) | React app structure, routing, context, current state management patterns |
+| [architecture/payments.md](architecture/payments.md) | Stripe checkout, webhook handling, customer portal payment flows |
+| [architecture/analytics.md](architecture/analytics.md) | Event tracking, sessions, insights, diagnostics, presence, caching |
 
----
+## Product Docs
 
-## Project Documentation PDF
+| Document | Description |
+| --- | --- |
+| [public/visitor-guide.md](public/visitor-guide.md) | Public-site behavior, visitor journey, and major pages |
+| [admin/admin-guide.md](admin/admin-guide.md) | Admin panel capabilities and operational workflows |
+| [customer-portal.md](customer-portal.md) | Customer auth, portal pages, sessions, messaging, notifications |
+| [chatbot.md](chatbot.md) | AI/chatbot behavior, context building, limits, and configuration |
 
-A professional engineering documentation PDF covering all modules is available:
+## Planning Docs
 
-📄 **[project-documentation.pdf](project-documentation.pdf)** — Full technical documentation (architecture, features, database schema, API reference, deployment guide)
+| Document | Description |
+| --- | --- |
+| [tasks/upcoming.md](tasks/upcoming.md) | Easy → medium → hard roadmap tailored to the current codebase |
 
----
+## Quick Reference
 
-## Quick Reference — Database Commands
-
-```bash
-# cd server first, then:
-npm run db:setup     # first-time: deploy migrations + seed
-npm run db:migrate   # create new migration after editing schema.prisma
-npm run db:deploy    # apply migrations in CI/production
-npm run db:reset     # wipe and rebuild local DB (dev only)
-npm run db:studio    # open Prisma Studio GUI
-```
-
----
-
-## Quick Reference — Start the Project
+### Start The Full Platform
 
 ```bash
-git clone <repo> && cd portfolio_v3_saas
-cd server && npm install && cp .env.example .env   # fill in DATABASE_URL + JWT_SECRET + STRIPE_*
-npm run db:setup          # initialise database
-npm run dev               # start API on :5000
-
-cd ../apps/public && npm install
-cd ../apps/admin && npm install
-cd ../apps/customer && npm install
-npm run dev   # apps/public :3000, apps/admin :3001, apps/customer :3002
+npm run install:all
+cp server/.env.example server/.env
+docker compose up -d postgres
+npm run db:setup
+npm run dev
 ```
 
-Default admin: `admin@portfolio.dev` / `Admin@123456`
+### Local URLs
+
+- `http://public.localhost:5173`
+- `http://admin.localhost:5173`
+- `http://customer.localhost:5173`
+- `http://api.localhost:5173`
+
+### Database Commands
+
+```bash
+npm run db:setup
+npm run db:migrate
+npm run db:deploy
+npm run db:generate
+npm run db:seed
+```
+
+### Default Seeded Admin
+
+- Email: `admin@portfolio.dev`
+- Password: `Admin@123456`

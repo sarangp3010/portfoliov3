@@ -2,115 +2,191 @@
 
 ## Overview
 
-The Customer Portal is a dedicated authenticated environment for clients who purchase services. It runs at `customer.example.com` (or `http://localhost:3002` in development).
+The customer portal is the authenticated client-facing application of the platform. It gives customers a persistent account area instead of limiting the product to a one-time public inquiry or checkout flow.
 
-## Architecture
+This is one of the most meaningful expansions of the codebase beyond a traditional portfolio site.
 
+## Current App Structure
+
+```text
+apps/customer/
+├── src/api
+├── src/components/auth
+├── src/components/layout
+├── src/components/ui
+├── src/config
+├── src/context
+├── src/hooks
+├── src/pages/customer
+└── src/types
 ```
-/apps/customer/          ← React + TypeScript + Vite + Tailwind
-  src/
-    pages/customer/      ← All portal pages
-    components/layout/   ← CustomerLayout (sidebar nav)
-    context/             ← AuthContext (customer JWT)
-    api/                 ← API client pointing to /server
-    types/               ← Customer-specific types
-```
 
-## Pages
+## Current Pages
 
-| Route | Description |
-|-------|-------------|
-| `/login` | Email/password login + social OAuth buttons |
-| `/register` | New customer registration with optional phone |
-| `/dashboard` | Overview: spend, payments, quick links, dev profile |
-| `/services` | Service plan cards with direct Stripe checkout |
-| `/payments` | Full payment history with receipt download |
-| `/payment-methods` | Saved cards via Stripe (add/remove) |
-| `/contact-admin` | Free-text message to admin |
-| `/profile` | Edit name, phone (email/provider locked) |
-| `/payment/success` | Post-checkout confirmation |
+| Route | Purpose |
+| --- | --- |
+| `/login` | Customer login |
+| `/register` | Customer registration |
+| `/auth/callback` | OAuth completion |
+| `/dashboard` | Overview screen |
+| `/services` | Customer-facing service purchase flow |
+| `/payments` | Payment history |
+| `/payment-methods` | Stripe payment methods |
+| `/contact-admin` | Message the admin |
+| `/profile` | Update profile fields |
+| `/notifications` | Customer notifications |
+| `/payment/success` | Stripe success return route |
 
 ## Authentication
 
-Customers authenticate separately from the admin user. The JWT contains `role: "CUSTOMER"`.
+The customer portal uses JWT auth for API requests and also tracks database-backed sessions for operational control.
 
-**Email/Password:** Standard bcrypt hashed passwords, minimum 8 characters.
+Current behavior:
 
-**Social Login (OAuth):** Google, GitHub, and Microsoft are supported as OAuth providers. In production, configure with passport.js:
-1. Create OAuth apps at each provider
-2. Add env vars: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, etc.
-3. Implement the OAuth callback routes in `server/src/controllers/oauth.controller.ts`
+- customer JWT stored in `localStorage`
+- API requests include `Authorization: Bearer <token>`
+- customer session records stored in `CustomerSession`
+- logout can invalidate session tokens
+- admins can inspect and terminate active customer sessions
 
-## Customer Sessions
+## Supported Login Methods
 
-Every login creates a `CustomerSession` record in the DB:
-- Token (random 96-char hex)
-- IP address, user agent, browser, device
-- `loginAt`, `lastActiveAt`, `expiresAt` (30 days)
-- `isActive` flag (set to false on logout or admin termination)
+### Email/Password
 
-Admins can view and terminate active sessions in **Admin → Customers → Active Sessions**.
+Current flow:
 
-## SMS Notifications
+- register via `/api/customer/auth/register`
+- login via `/api/customer/auth/login`
+- validate current session via `/api/customer/auth/me`
 
-After a successful Stripe payment webhook:
-1. The system looks up the customer by email
-2. If a phone number is on file, sends an SMS via Twilio
+### OAuth
 
-**Setup:**
+Current supported providers in implementation:
+
+- Google
+- GitHub
+
+Important docs correction:
+
+- older docs referenced Microsoft as supported
+- the current implemented OAuth controller covers Google and GitHub
+- the Prisma enum still includes `microsoft`, but the implemented routes do not currently expose a Microsoft flow
+
+## Customer Features
+
+### Dashboard
+
+Acts as a customer overview surface and quick entry point into:
+
+- services
+- payments
+- profile
+- messaging
+
+### Payments
+
+Customers can:
+
+- view payment history
+- see statuses
+- access receipt data
+
+### Payment Methods
+
+Customers can:
+
+- open a Stripe setup flow
+- add payment methods
+- remove saved payment methods
+
+### Contact Admin
+
+Customers can send messages that become `CustomerMessage` records. Admins can reply from the admin interface, and those replies can trigger:
+
+- notification creation
+- email delivery to the customer
+
+### Notifications
+
+Customer notifications use the same shared notification system as admin notifications, scoped by role and recipient ID.
+
+## Session Management
+
+The current codebase supports an actual customer session model:
+
+- `CustomerSession` stores token, device/browser info, login time, expiry, and active state
+- admin can view active sessions
+- admin can terminate sessions
+
+This is a meaningful operational feature and should be documented as part of the current platform, not as future work.
+
+## Messaging Model
+
+Customer messaging is currently lightweight but real:
+
+- customer sends a message from the portal
+- a `CustomerMessage` record is created
+- admin is notified
+- admin can reply
+- reply is stored and can be emailed to the customer
+
+This is not yet a full threaded messaging system, but it is already a valid support/contact workflow.
+
+## Notifications Model
+
+Customer users can access:
+
+- paginated notifications
+- unread count
+- mark-one-read
+- mark-all-read
+
+These are powered by the shared `/api/notifications*` routes using role-aware auth.
+
+## AI Assistant In The Portal
+
+The customer portal currently mounts the assistant widget with auth token support.
+
+That means the portal already has:
+
+- a customer-aware assistant entry point
+- account-sensitive context when authenticated
+- room to evolve into a stronger support assistant later
+
+## Environment Requirements
+
+Relevant server environment values include:
+
 ```env
-TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TWILIO_AUTH_TOKEN=your_auth_token
-TWILIO_PHONE_NUMBER=+15550001234
+JWT_SECRET=...
+CUSTOMER_URL=http://customer.localhost:5173
+
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_CALLBACK_URL=http://api.localhost:5173/api/customer/auth/google/callback
+
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+GITHUB_CALLBACK_URL=http://api.localhost:5173/api/customer/auth/github/callback
+
+OAUTH_SUCCESS_URL=http://customer.localhost:5173/auth/callback
+OAUTH_ERROR_URL=http://customer.localhost:5173/login
 ```
 
-If Twilio is not configured, SMS is silently skipped.
+Optional integrations:
 
-## Admin Management
+- Stripe
+- SMTP
+- Twilio
 
-### Customers List
-- View all registered customers
-- See payment count, session count, message count per customer
-- Activate / Deactivate accounts
-- Click "View" to see full profile + payment history + sessions
+## Current Gaps
 
-### Active Sessions
-- See all currently active customer sessions
-- Browser, device, IP, last active time
-- Terminate any session instantly
+The portal is already useful, but it does not yet include:
 
-### Messages
-- Receive messages sent from the Contact Admin page
-- Reply directly — reply is sent via email to the customer and stored in DB
+- project workspaces
+- invoices or milestone billing
+- threaded conversations
+- file uploads
+- proposal acceptance
 
-## Environment Variables
-
-```env
-# Required for customer portal
-JWT_SECRET=your_secret          # Shared with admin auth
-CUSTOMER_URL=http://customer.example.com
-
-# Optional: SMS notifications
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
-TWILIO_PHONE_NUMBER=
-```
-
-## Development
-
-```bash
-cd apps/customer
-npm install
-npm run dev      # Runs on http://localhost:3002
-```
-
-The customer API is served from the main server at `VITE_API_URL` (default: `http://localhost:5000`).
-
-## Stripe Integration
-
-Customer portal uses the same Stripe keys as the public site:
-- `getServicePlans()` — reads live services from DB and converts prices
-- `createCheckout` — creates a Stripe Checkout session with `fromCustomerPortal: true`
-- Success redirect → `/payment/success` on the customer portal
-- `getPaymentMethods` — reads saved cards from Stripe for the customer's email
-- `setupPaymentMethod` — creates a Stripe Setup Session for adding new cards
+Those are strong future directions, but the current portal should already be documented as a real product surface, not a placeholder.

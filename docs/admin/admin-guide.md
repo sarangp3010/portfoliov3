@@ -1,457 +1,332 @@
 # Admin System Documentation
 
-This document covers every section of the admin panel — what it does, how to use it, and how it fits into the overall system.
-
----
+This document describes the current admin application as implemented in the repository. It is both a feature guide and a system map for the operational side of the platform.
 
 ## Access
 
-The admin panel lives at `/admin`. It requires authentication with a valid admin account.
+The admin app is a protected React application served separately from the public site and customer portal.
 
-**Default credentials (change immediately after first login)**
+Current seed credentials:
 
 | Field | Value |
-|---|---|
+| --- | --- |
 | Email | `admin@portfolio.dev` |
 | Password | `Admin@123456` |
 
-Login is handled by a JWT-based flow. The token is stored in memory via React Context and refreshed by calling `/api/auth/me` on page load.
+Important implementation note:
 
----
+- the admin token is currently stored in `localStorage`
+- older docs that described memory-only auth are no longer accurate for the current repo
 
-## Admin Login Flow
+## Current Admin Areas
 
-```
-User visits /admin
-        │
-        ▼
-  Not authenticated → redirect to /admin/login
-        │
-        ▼
-  User submits email + password
-        │
-        ▼
-  POST /api/auth/login
-        │
-    ┌───┴───┐
-   fail    success
-    │         │
-    ▼         ▼
-  Error    JWT stored in AuthContext
-  shown    User redirected to /admin/dashboard
-```
+The admin app currently includes all of the following pages:
 
----
+- dashboard
+- analytics
+- sessions viewer
+- insights
+- payments
+- customers
+- email templates
+- notifications
+- page sections
+- profile editor
+- blog manager
+- projects manager
+- services manager
+- testimonials manager
+- resume manager
+- inquiries manager
+- feature flags
+- developer diagnostics
+- theme manager
+- settings
+
+This is substantially broader than a content-only dashboard.
 
 ## Dashboard
 
-**Route:** `/admin`
-
-Shows an at-a-glance overview of the portfolio:
-
-- Total visitors, page views, and projects
-- Recent analytics summary (last 30 days)
-- Pending inquiry count
-- Latest blog posts and their view counts
-
----
-
-## Blog Management
-
-**Route:** `/admin/blog`
-
-Create, edit, and delete blog posts.
-
-| Field | Description |
-|---|---|
-| Title | Post title — used in `<title>` and OG tags |
-| Slug | URL identifier — auto-suggested, must be unique |
-| Excerpt | Short description for the post listing card |
-| Content | Full post body in Markdown |
-| Tags | Comma-separated tag list |
-| Cover Image | URL to cover image |
-| Reading Time | Auto-calculated from word count |
-| Published | Toggle to make post visible publicly |
-
-Every save creates a `ContentVersion` snapshot. Use the **Version History** button to restore a previous state.
-
-### Content Creation Flow
-
-```
-Admin navigates to /admin/blog
-        │
-        ▼
-  Clicks "New Post"
-        │
-        ▼
-  Fills form fields
-        │
-        ▼
-  Clicks Save (unpublished by default)
-        │
-        ▼
-  POST /api/blog
-  ContentVersion snapshot created
-        │
-        ▼
-  Admin reviews preview
-        │
-        ▼
-  Toggles Published → PUT /api/blog/:id
-  Post appears on /blog
-```
+Purpose:
 
----
+- quick operational summary
+- traffic and engagement signal
+- recent platform activity
 
-## Projects Management
+Typical use:
 
-**Route:** `/admin/projects`
+- check current platform health
+- see whether inquiries or customer activity needs attention
+- jump into deeper analytics or content pages
 
-Full CRUD for portfolio projects.
+## Content Management
 
-| Field | Description |
-|---|---|
-| Title | Project name |
-| Description | Short description (used in cards) |
-| Long Description | Full Markdown description |
-| Tech Stack | Array of technology labels |
-| GitHub URL | Link to repository |
-| Live URL | Link to live site or demo |
-| Image URL | Cover image |
-| Featured | Pin to top of the projects list |
-| Order | Display order (lower = higher) |
+### Profile Editor
 
-Changes are versioned. Project click analytics are tracked per-project.
+Controls:
 
----
+- personal bio
+- short bio
+- skills
+- tech stack
+- social/profile links
+- stats and availability
 
-## Services Management
+Why it matters:
 
-**Route:** `/admin/services`
+- public site content depends on it
+- chatbot context depends on it
+- exported documents and service positioning depend on it
 
-Manage the service tiers shown on the `/services` page.
+### Blog Manager
 
-| Field | Description |
-|---|---|
-| Title | Tier name (e.g. "Starter", "Professional") |
-| Description | What this tier offers |
-| Features | Bullet list of included features |
-| Price | Display price (e.g. "$2,500") |
-| Price Note | Optional note (e.g. "per month") |
-| Tier | Internal tier identifier |
-| Popular | Highlights this card visually |
-| CTA Label | Button text (default: "Get Started") |
-| Order | Display order |
+Controls:
 
----
+- blog CRUD
+- publishing state
+- excerpts and content
+- tags and cover image
 
-## Testimonials Management
+Operational notes:
 
-**Route:** `/admin/testimonials`
+- content versions are supported
+- blog analytics depend on blog content IDs and views
 
-Add and manage client testimonials.
+### Projects Manager
 
-| Field | Description |
-|---|---|
-| Name | Client full name |
-| Role | Their job title |
-| Company | Company name |
-| Content | The quote text |
-| Avatar URL | Photo URL |
-| LinkedIn URL | Optional profile link |
-| Rating | Star rating (1–5) |
-| Featured | Highlight this testimonial |
-| Order | Display order |
+Controls:
 
----
+- project CRUD
+- featured state
+- order
+- links and tech stack
+- long description for richer explanations
 
-## Resume Management
+Operational notes:
 
-**Route:** `/admin/resume`
+- long descriptions improve chatbot and project-detail usefulness
+- project analytics track engagement and link clicks
 
-Upload resume PDFs and control which version is active.
+### Services Manager
 
-- Multiple versions can be stored.
-- Only one can be marked `isActive` at a time.
-- Download count is tracked per file.
-- The active resume is served at the public `/resume` page.
+Controls:
 
----
+- service tiers
+- descriptions
+- pricing labels
+- feature lists
+- CTA labels
+- order and emphasis
 
-## Inquiries
+Operational notes:
 
-**Route:** `/admin/inquiries`
+- this content influences both public conversion and assistant responses
+- service records also support payment plan presentation
 
-All contact form submissions land here.
+### Testimonials Manager
 
-Each inquiry has a `status`:
+Controls:
 
-| Status | Meaning |
-|---|---|
-| `UNREAD` | New, not yet viewed |
-| `READ` | Opened by admin |
-| `REPLIED` | Response sent |
-| `ARCHIVED` | Dismissed / closed |
+- testimonial CRUD
+- featured state
+- ordering
+- rating and attribution metadata
 
-Admins can update the status, view message content, and filter by status.
-
----
-
-## Analytics Dashboard
-
-**Route:** `/admin/analytics`
+### Resume Manager
 
-Overview of visitor activity.
+Controls:
 
-**Summary stats:**
-- Total unique visitors
-- Total page views
-- Average pages per visitor
-- Most visited pages
-- Top referrers
+- upload multiple resumes
+- activate one current resume
+- delete old versions
+- observe download count behavior
 
-**Blog analytics:**
-- Views per post
-- Read-through rates (from BLOG_SCROLL data)
-- Tag popularity
+## Inquiry Management
 
-**Project analytics:**
-- Click counts per project
-- GitHub vs demo link click ratio
+The inquiry manager is one of the most business-relevant current admin pages.
 
-**Visitor insights:**
-- Country distribution
-- Browser and OS breakdown
-- Mobile vs desktop ratio
-- Traffic over time
+Current capabilities:
 
----
+- paginated inquiry listing
+- status filter
+- view full inquiry content
+- update inquiry status
+- delete inquiry
+- reply via email
 
-## Session Analytics
+Current statuses:
 
-**Route:** `/admin/analytics/sessions`
+- `UNREAD`
+- `READ`
+- `REPLIED`
+- `ARCHIVED`
 
-A high-level view of individual visitor sessions.
+Important roadmap note:
 
-### Session Card
-Each session is displayed as a card showing:
+- this page is the best insertion point for future AI inquiry triage
 
-- Location, browser, and relative time
-- Engagement level: **High / Medium / Low** (scored by action weights)
-- Quick stats: pages visited, event count, duration
-- Highlighted key actions (inquiry sent, resume downloaded, GitHub clicked, etc.)
+## Analytics And Diagnostics
 
-### Engagement Scoring
+### Analytics Page
 
-Each event type is weighted:
+Current responsibilities:
 
-| Event | Weight |
-|---|---|
-| INQUIRY_SUBMIT | 10 |
-| RESUME_DOWNLOAD | 8 |
-| SERVICE_INQUIRY_OPEN | 6 |
-| PROJECT_GITHUB_CLICK | 5 |
-| PROJECT_DEMO_CLICK | 5 |
-| BLOG_SCROLL | 4 |
-| BLOG_VIEW | 3 |
-| PROJECT_VIEW | 3 |
-| PAGE_VIEW | 1 |
+- overview stats
+- blog analytics
+- project analytics
+- visitor insights
+- time-window filtering
 
-A score ≥ 20 = High, ≥ 8 = Medium, otherwise Low.
+### Sessions Viewer
 
-### Filters
-Admins can filter the list by: All, High Engagement, Sent Inquiry, Downloaded Resume.
+Current responsibilities:
 
-### Session Detail
-Clicking a card opens the full session view with:
-- Stats row (duration, pages, events, score, country, browser)
-- Key Actions panel (only impactful events)
-- Content Viewed (which blog posts and projects were seen)
-- Pages Visited (clean ordered list)
-- Full Event Timeline with readable labels, content names, scroll data
+- inspect individual visitor sessions
+- review navigation paths
+- identify meaningful actions
+- assess engagement
 
-### Session Analysis Workflow
+This page is especially useful for understanding inquiry- or resume-related intent.
 
-```
-Admin opens /admin/analytics/sessions
-        │
-        ▼
-  Scans session cards for high engagement or inquiry badges
-        │
-        ▼
-  Applies filter → e.g. "Sent Inquiry"
-        │
-        ▼
-  Clicks session card
-        │
-        ▼
-  Reviews Key Actions panel
-  (resume download, GitHub visit, inquiry submitted)
-        │
-        ▼
-  Checks "Content Viewed" for which posts/projects attracted them
-        │
-        ▼
-  Reviews Full Timeline for complete picture
-        │
-        ▼
-  Navigates back to list → reviews next session
-```
+### Insights Panel
 
----
+Current responsibilities:
 
-## Insights Panel
+- active visitor summary
+- top pages and countries right now
+- deterministic smart insights
+- top navigation flows
+- top entry/exit pages
 
-**Route:** `/admin/insights`
+Important accuracy note:
 
-Real-time active visitor count and auto-generated insights, including navigation flow analysis (which pages lead visitors to contact or download).
+- the UI language may suggest AI-like insights
+- the current implementation is primarily rule-based/deterministic
 
----
+### Developer Diagnostics
+
+Current responsibilities:
+
+- API request counts
+- error rate
+- average and p95 duration
+- slow requests
+- recent errors
+- event log visibility
+
+This is already a serious operational feature for a project of this size.
+
+## Payments
+
+The payments manager gives admin-side access to:
+
+- paginated transactions
+- payment-source visibility
+- analytics by time window
+- revenue breakdowns
+
+This page matters because payments already span public and customer flows, and the admin app is the operational control surface for both.
+
+## Customers
+
+The customers page is one of the biggest areas that older docs tended to under-document.
+
+Current capabilities include:
+
+- list customers
+- inspect customer records
+- toggle active/inactive state
+- review active customer sessions
+- terminate sessions
+- read customer messages
+- reply to customer messages
+
+This means the admin app already contains a small customer-ops layer, not just content administration.
+
+## Email Templates
+
+The admin app currently includes a database-backed email template manager.
+
+Capabilities:
+
+- list templates
+- create templates
+- update templates
+- preview rendered templates
+- send test emails
+- reset system templates
+
+This is important because outgoing email behavior is no longer hardcoded only in source files.
+
+## Notifications
+
+The admin notification center currently supports:
+
+- paginated notification listing
+- unread filtering
+- unread count
+- mark one read
+- mark all read
+
+Notifications are shared system infrastructure, but admin has its own scoped recipient identity and UI.
+
+## Page Sections
+
+This is another major area that should now be considered a first-class feature.
+
+Current capabilities:
+
+- list configurable pages
+- seed defaults on first load
+- create sections
+- edit content/style/animation metadata
+- reorder sections
+- toggle visibility
+- delete sections
+
+Why it matters:
+
+- this enables dynamic public page composition without redeploying
+- it creates a natural future opportunity for section-level analytics and AI-assisted layout/content suggestions
 
 ## Feature Flags
 
-**Route:** `/admin/flags`
+The admin app exposes runtime feature flags for behavior such as:
 
-Dynamic toggles for features without requiring a deploy.
+- analytics collection
+- real-time analytics
+- caching
+- maintenance mode
+- inquiry form behavior
+- content visibility toggles
 
-| Flag key | Controls |
-|---|---|
-| `blog_visible` | Hides/shows blog section |
-| `projects_visible` | Hides/shows projects |
-| `testimonials_visible` | Hides/shows testimonials |
-| `services_visible` | Hides/shows services |
-| `resume_download` | Enables/disables resume download button |
-| `analytics_enabled` | Enables/disables all analytics collection |
-| `realtime_analytics` | Enables/disables active visitor presence tracking |
-| `content_versioning` | Enables/disables content version snapshots |
-| `api_logging` | Enables/disables API request logging |
-| `caching_enabled` | Enables/disables response cache |
-| `maintenance_mode` | Shows maintenance banner to all visitors |
-| `inquiry_form` | Enables/disables contact form |
+This gives the platform operational flexibility without requiring code changes for every toggle.
 
----
+## Theme Manager
 
-## Developer Diagnostics
+Current theme controls include:
 
-**Route:** `/admin/diagnostics`
+- mode
+- primary and accent colors
+- font selection
+- border radius
+- animation speed
+- custom CSS
 
-API health and developer tools.
-
-- **API Stats:** total requests, error rate, average response time, slowest endpoints
-- **Error Log:** recent 4xx/5xx responses
-- **Event Log:** last N analytics events for real-time debugging
-
----
+This directly affects public/admin presentation and is already wired through theme APIs and CSS variables.
 
 ## Settings
 
-**Route:** `/admin/settings`
+The settings page currently focuses on admin password changes.
 
-Change the admin account password.
+## High-Value Near-Term Additions
 
----
+The most natural next admin upgrades based on current implementation are:
 
-## Full Schema — Admin & Content Tables
+- AI inquiry triage inside inquiries
+- AI content assistance in content managers
+- AI analytics summaries in insights/analytics
+- global admin search
+- section-level analytics
 
-```
-┌──────────┐       ┌──────────────┐       ┌──────────────┐
-│   User   │       │   BlogPost   │       │   Project    │
-│──────────│       │──────────────│       │──────────────│
-│ id       │       │ id           │       │ id           │
-│ email    │       │ title        │       │ title        │
-│ password │       │ slug (uniq)  │       │ description  │
-│ name     │       │ content (MD) │       │ techStack[]  │
-│ role     │       │ tags[]       │       │ githubUrl    │
-└──────────┘       │ published    │       │ liveUrl      │
-                   │ views        │       │ featured     │
-                   │ readingTime  │       │ order        │
-                   └──────────────┘       └──────┬───────┘
-                                                 │ 1 ─── *
-                                          ┌──────▼───────┐
-┌──────────────┐   ┌──────────────┐       │ ProjectClick │
-│  FeatureFlag │   │ContentVersion│       │──────────────│
-│──────────────│   │──────────────│       │ id           │
-│ id           │   │ id           │       │ projectId FK │
-│ key (uniq)   │   │ contentType  │       │ createdAt    │
-│ name         │   │ contentId    │       └──────────────┘
-│ enabled      │   │ version      │
-│ category     │   │ snapshot JSON│
-│ metadata JSON│   │ changedBy    │
-└──────────────┘   └──────────────┘
-
-┌──────────┐  ┌──────────────┐  ┌──────────────┐  ┌────────────┐
-│ Service  │  │ Testimonial  │  │   Inquiry    │  │   Resume   │
-│──────────│  │──────────────│  │──────────────│  │────────────│
-│ id       │  │ id           │  │ id           │  │ id         │
-│ title    │  │ name         │  │ name, email  │  │ fileName   │
-│ features │  │ company      │  │ message      │  │ fileUrl    │
-│ price    │  │ content      │  │ status       │  │ isActive   │
-│ tier     │  │ rating       │  │ ipAddress    │  │ version    │
-│ popular  │  │ featured     │  └──────────────┘  └────────────┘
-└──────────┘  └──────────────┘
-
-┌──────────┐  ┌──────────┐  ┌────────────┐
-│  ApiLog  │  │CacheEntry│  │ActiveVistor│
-│──────────│  │──────────│  │────────────│
-│ method   │  │ key (PK) │  │ sessionId  │
-│ path     │  │ value    │  │ currentPage│
-│ statusCd │  │ expiresAt│  │ lastPing   │
-│ durationMs│ └──────────┘  └────────────┘
-│ errorMsg │
-└──────────┘
-```
-
----
-
-## Use Cases
-
-### UC-A1: Admin Creates a Blog Post
-
-1. Admin navigates to `/admin/blog`.
-2. Clicks "New Post" button.
-3. Fills in title, slug, content (Markdown), tags, excerpt.
-4. Saves as draft (Published = off).
-5. Previews the post at `/blog/:slug`.
-6. Toggles Published to make it live.
-7. Server creates `ContentVersion` snapshot on every save.
-
-### UC-A2: Admin Analyzes Visitor Sessions
-
-1. Opens `/admin/analytics/sessions`.
-2. Scans session cards for inquiry or resume badges.
-3. Applies "Sent Inquiry" filter.
-4. Clicks a high-engagement card.
-5. Reviews Key Actions (resume download → GitHub click → inquiry).
-6. Identifies which blog post or project led them there from Content Viewed.
-7. Navigates back and checks next session.
-
-### UC-A3: Admin Reviews Analytics
-
-1. Opens `/admin/analytics`.
-2. Checks total visitors and trend.
-3. Identifies most-viewed blog posts.
-4. Sees project click breakdown.
-5. Checks country distribution and device split.
-
-### UC-A4: Admin Toggles a Feature
-
-1. Opens `/admin/flags`.
-2. Finds `maintenance_mode`.
-3. Toggles it on.
-4. Public site shows maintenance message without a deploy.
-5. Toggles back off when maintenance is complete.
-
-### UC-A5: Admin Updates Profile
-
-1. Opens `/admin/profile`.
-2. Types in input fields — focus is maintained between keystrokes.
-3. Updates bio, social links, skills, stats.
-4. Clicks Save — server updates Profile row and creates ContentVersion.
-
-### UC-A6: Admin Manages Resume
-
-1. Opens `/admin/resume`.
-2. Uploads a new PDF.
-3. Sets it as active.
-4. Previous version is preserved but deactivated.
-5. Public `/resume` page now serves the new file.
+These fit the current architecture cleanly and build on surfaces that already exist.

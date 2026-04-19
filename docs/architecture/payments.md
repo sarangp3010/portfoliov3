@@ -2,199 +2,171 @@
 
 ## Overview
 
-The payment system uses **Stripe Checkout** — Stripe's hosted payment page. This means payment card data never touches the application server, simplifying PCI DSS compliance.
+The payment system is built on Stripe Checkout and supports both public-site and customer-portal payment flows.
 
----
+Current strengths:
 
-## Payment Types
+- hosted Stripe Checkout keeps card handling off the app server
+- pending payment records are created immediately
+- webhook processing is idempotent
+- admin payment analytics are available
+- customer portal users can view payments and manage saved payment methods
 
-| Type | Description | Typical Use |
-|---|---|---|
-| `service` | Service package payment | Client pays for a dev package |
-| `custom` | User-specified amount | Consulting, ad-hoc engagement |
-| `donation` | Support payment | Coffee, open-source support |
+## Payment Entry Paths
 
----
+### Public Flow
 
-## Client Service Request Flow
+Used when a visitor explores services on the public site and either purchases directly or proceeds through an inquiry-driven flow.
 
-```
-Visitor views /services
-       │
-       ▼
-Clicks "Get Started" on a service card
-       │
-       ▼ scrolls to inquiry form
-Fills out inquiry (name, email, subject, message, serviceType)
-       │
-       ▼ POST /api/inquiries
-Inquiry stored, inquiryId returned
-       │
-       ▼ optional
-Clicks deposit amount ($250 / $500 / $1000)
-       │
-       ▼ POST /api/payments/checkout
-Server creates Stripe Checkout Session
-Server stores PENDING Payment record
-Response: { sessionId, url }
-       │
-       ▼ browser redirects
-Stripe Hosted Checkout Page
-(card entry, 3D Secure if needed)
-       │
-       ▼ payment complete
-Stripe redirects to /payment/success?session_id=cs_...
-       │
-       ▼ client polls GET /api/payments/status/:sessionId
-Stripe fires webhook to /api/payments/webhook
-Server updates Payment → COMPLETED
-       │
-       ▼ status resolves
-Payment success page shows amount + receipt download
-```
+### Customer Portal Flow
 
----
+Used when an authenticated customer purchases from the portal using:
 
-## Backend Implementation
+- a selected plan
+- customer identity already known from the portal session
 
-### Checkout Session Creation
+The customer portal also exposes:
 
-```typescript
-// payment.service.ts
-export const createCheckoutSession = async (params: CheckoutParams) => {
-  const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card'],
-    mode: 'payment',
-    line_items: [{ price_data: { ... }, quantity: 1 }],
-    success_url: `${CLIENT_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url:  `${CLIENT_URL}/payment/cancel`,
-    metadata: { type, serviceId, serviceName, inquiryId, customerName },
-  });
+- payment history
+- receipt data
+- Stripe payment method setup and deletion
 
-  // Store pending record immediately
-  await prisma.payment.create({
-    data: { stripeSessionId: session.id, status: 'PENDING', ... }
-  });
+## Data Model
 
-  return { sessionId: session.id, url: session.url };
-};
-```
+### `Payment`
 
-### Webhook Processing
+The current `Payment` model includes:
 
-The webhook endpoint uses `express.raw()` middleware (not JSON) because Stripe's signature verification requires the raw request body bytes.
+- Stripe session and payment intent identifiers
+- amount and currency
+- payment status
+- payment type
+- payment source
+- optional plan, inquiry, service, and customer linkage
+- metadata
 
-```typescript
-// Idempotency check
-const existing = await prisma.paymentWebhookEvent.findUnique({
-  where: { stripeEventId: event.id }
-});
-if (existing?.processed) return { received: true };  // already handled
+Important current fields:
 
-// Process event
-if (event.type === 'checkout.session.completed') {
-  await prisma.payment.update({
-    where: { stripeSessionId: session.id },
-    data: { status: 'COMPLETED', stripePaymentIntent: session.payment_intent }
-  });
-}
+- `status`
+- `type`
+- `paymentSource`
+- `customerId`
+- `customerEmail`
+- `serviceName`
+- `planId`
 
-// Mark processed
-await prisma.paymentWebhookEvent.update({
-  where: { stripeEventId: event.id },
-  data: { processed: true }
-});
+This is more capable than an earlier “single checkout table” design because it already distinguishes direct and inquiry-driven payments.
+
+### `PaymentWebhookEvent`
+
+Used as an idempotency and trace record for Stripe webhooks.
+
+Purpose:
+
+- prevent duplicate processing
+- record payloads
+- surface errors when webhook handling fails
+
+## Public Payment Lifecycle
+
+```text
+Visitor opens /services
+  -> selects a service or plan
+  -> optional inquiry submitted
+  -> frontend requests /api/payments/checkout
+  -> server creates Stripe Checkout session
+  -> server stores PENDING payment
+  -> browser redirects to Stripe
+  -> Stripe webhook updates payment state
+  -> success/cancel page resolves status
 ```
 
----
+## Customer Portal Payment Lifecycle
 
-## Database Schema
-
-### Payment
-
-```prisma
-model Payment {
-  id                  String        @id @default(cuid())
-  stripeSessionId     String        @unique
-  stripePaymentIntent String?
-  amount              Int           // stored in cents
-  currency            String        @default("usd")
-  status              PaymentStatus @default(PENDING)
-  type                String        @default("service")
-  description         String?
-  customerName        String?
-  customerEmail       String?
-  serviceId           String?
-  serviceName         String?
-  inquiryId           String?
-  metadata            Json?
-  receiptUrl          String?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-}
+```text
+Customer logs in
+  -> opens /services or /payments
+  -> starts checkout with known account identity
+  -> /api/customer/payments/checkout
+  -> server creates checkout session with customer context
+  -> payment stored and later updated via webhook
+  -> customer sees it in portal history
 ```
 
-### PaymentWebhookEvent
+## Payment Methods
 
-```prisma
-model PaymentWebhookEvent {
-  id            String   @id @default(cuid())
-  stripeEventId String   @unique    // idempotency key
-  type          String
-  payload       Json
-  processed     Boolean  @default(false)
-  error         String?
-  createdAt     DateTime @default(now())
-}
-```
+The customer portal supports saved Stripe payment methods.
 
----
+Current backend routes:
 
-## Analytics
+- `GET /api/customer/payment-methods`
+- `POST /api/customer/payment-methods/setup`
+- `DELETE /api/customer/payment-methods/:pmId`
 
-`getPaymentAnalytics(days)` returns:
+These are important because they move the portal beyond one-time checkout into ongoing customer account management.
 
-| Field | Description |
-|---|---|
-| `totalRevenue` | Sum of completed payments in cents |
-| `totalCount` | Count of completed payments |
-| `avgOrderValue` | Average per transaction |
-| `byType` | Revenue grouped by payment type |
-| `byDay` | Daily revenue and count for the period |
-| `recent` | 10 most recent payments |
-| `webhookErrors` | Count of unprocessed webhook events |
+## Admin Payments Surface
 
----
+The admin app currently includes a payments manager with:
 
-## Receipt PDF
+- paginated transactions
+- revenue analytics
+- filtering by source
+- recent payment visibility
 
-`downloadReceiptPDF(payment)` in `utils/pdf.ts` generates a browser print PDF containing:
-- Receipt ID, date, customer name, email
-- Line item description and service name
-- Subtotal, fees, total
-- Payment status badge
-- Stripe session reference
+The backend supports:
 
----
+- `GET /api/admin/payments`
+- `GET /api/admin/payments/analytics`
+
+## Webhook Handling
+
+Webhook processing is designed to be idempotent.
+
+Typical flow:
+
+1. Stripe posts to `/api/payments/webhook`
+2. raw request body is used for signature verification
+3. `PaymentWebhookEvent` is checked/recorded
+4. relevant payment is updated
+5. repeat delivery is ignored when already processed
+
+This is one of the more production-ready backend areas in the repo.
+
+## Notifications And Side Effects
+
+Payments can trigger follow-on communication behavior such as:
+
+- customer email
+- notification creation
+- optional SMS behavior where configured
+
+That means payments are not isolated to a single controller. They already participate in the broader customer-ops system.
 
 ## Configuration
 
-| Variable | Description |
-|---|---|
-| `STRIPE_SECRET_KEY` | `sk_test_...` in dev, `sk_live_...` in production |
-| `STRIPE_PUBLISHABLE_KEY` | Sent to frontend via `/api/payments/key` |
-| `STRIPE_WEBHOOK_SECRET` | `whsec_...` from Stripe webhook configuration |
+Required Stripe variables:
 
-If `STRIPE_SECRET_KEY` is not configured, the server starts normally but throws an error when a checkout is attempted. This allows running the app without Stripe for non-payment features.
-
----
-
-## Testing Stripe Locally
-
-Use the Stripe CLI to forward webhooks to your local server:
-
-```bash
-stripe listen --forward-to localhost:5000/api/payments/webhook
+```env
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
-Test with Stripe test card `4242 4242 4242 4242`, any future expiry, any CVC.
+Optional but related:
+
+- customer portal URLs
+- email delivery configuration
+- SMS configuration
+
+## Current Limitations
+
+The current payment system is strong for one-time and direct service payments, but it does not yet include:
+
+- invoices
+- milestone billing
+- subscriptions
+- dunning/retry workflows
+- proposal-linked billing
+
+Those are valid future additions, but the existing implementation is already robust for the current product stage.

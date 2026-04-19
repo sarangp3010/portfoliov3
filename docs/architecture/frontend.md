@@ -1,180 +1,237 @@
 # Frontend Architecture
 
-## Application Shell
+## Overview
 
-The React app boots in `main.tsx`:
+The frontend layer is intentionally split into three separate apps:
 
-```tsx
-<BrowserRouter>
-  <HelmetProvider>
-    <AuthProvider>
-      <ThemeProvider>
-        <TrackedApp />
-      </ThemeProvider>
-    </AuthProvider>
-  </HelmetProvider>
-</BrowserRouter>
-```
+- `apps/public`
+- `apps/admin`
+- `apps/customer`
 
-`TrackedApp` calls `useTracker()` (analytics hook) at the top level, ensuring every route change fires a `PAGE_VIEW` event. All pages are lazy-loaded via `React.lazy()` with a `Suspense` fallback.
+All three use:
 
----
+- React 18
+- TypeScript
+- Vite
+- Tailwind CSS
+- React Router
+- Axios
+
+The public and admin apps also use `react-helmet-async`. The customer app uses Stripe.js in the payment-method and checkout flows.
+
+## Application Entrypoints
+
+### Public App
+
+`apps/public/src/main.tsx` mounts:
+
+- `BrowserRouter`
+- `HelmetProvider`
+- the root app
+
+`apps/public/src/App.tsx` wraps the route tree in:
+
+- `ThemeProvider`
+- a tracked route shell that invokes analytics hooks
+
+### Admin App
+
+`apps/admin/src/main.tsx` mounts:
+
+- `BrowserRouter`
+- `HelmetProvider`
+- the root app
+
+`apps/admin/src/App.tsx` wraps the route tree in:
+
+- `AuthProvider`
+- `ThemeProvider`
+- `ProtectedRoute`
+- `AdminLayout`
+
+### Customer App
+
+`apps/customer/src/main.tsx` mounts:
+
+- `BrowserRouter`
+- the root app
+
+`apps/customer/src/App.tsx` wraps routes in:
+
+- `CustomerAuthProvider`
+- a local `ProtectedRoute`
+- `CustomerLayout`
 
 ## Routing
 
-Two separate route trees:
-
 ### Public Routes
-Wrapped in `PublicLayout` (Navbar + Footer):
-- `/` — Home (profile, featured projects)
-- `/blog` — Blog listing
-- `/blog/:slug` — Blog post
-- `/services` — Services + inquiry form
-- `/testimonials` — Testimonials
-- `/resume` — Resume viewer + PDF export
-- `/payment/success` — Payment confirmation
-- `/payment/cancel` — Payment cancelled
+
+- `/`
+- `/blog`
+- `/blog/:slug`
+- `/services`
+- `/testimonials`
+- `/resume`
+- `/payment/success`
+- `/payment/cancel`
 
 ### Admin Routes
-Wrapped in `ProtectedRoute` + `AdminLayout` (sidebar navigation):
-- `/admin` — Dashboard
-- `/admin/analytics` — Analytics (5 tabs)
-- `/admin/analytics/sessions` — Sessions Viewer
-- `/admin/insights` — Smart Insights
-- `/admin/payments` — Payments Manager
-- `/admin/profile` — Profile Editor
-- `/admin/blog` — Blog Manager
-- `/admin/projects` — Projects Manager
-- `/admin/services` — Services Manager
-- `/admin/testimonials` — Testimonials Manager
-- `/admin/resume` — Resume Manager
-- `/admin/inquiries` — Inquiries Manager
-- `/admin/flags` — Feature Flags
-- `/admin/diagnostics` — Dev Diagnostics
-- `/admin/theme` — Theme Manager
-- `/admin/settings` — Settings
 
----
+- `/login`
+- `/`
+- `/analytics`
+- `/analytics/sessions`
+- `/insights`
+- `/payments`
+- `/customers`
+- `/email-templates`
+- `/notifications`
+- `/page-sections`
+- `/profile`
+- `/blog`
+- `/projects`
+- `/services`
+- `/testimonials`
+- `/resume`
+- `/inquiries`
+- `/flags`
+- `/diagnostics`
+- `/theme`
+- `/settings`
+
+This is more extensive than older frontend docs suggested. In particular, the admin app is now a true operations dashboard, not just a content editor.
+
+### Customer Routes
+
+- `/login`
+- `/register`
+- `/auth/callback`
+- `/payment/success`
+- `/dashboard`
+- `/services`
+- `/payments`
+- `/payment-methods`
+- `/contact-admin`
+- `/profile`
+- `/notifications`
 
 ## Context Providers
 
-### `AuthContext`
+### Admin Auth Context
 
-Manages authentication state:
-- Stores `user` object (id, email, name, role) and JWT token in React state
-- `login(email, password)` calls `/api/auth/login`, stores result
-- `logout()` clears state — token is lost (stateless)
-- `ProtectedRoute` uses this context to guard admin routes
+The current admin auth implementation:
 
-No localStorage is used. This is intentional — it avoids XSS vectors. Users re-authenticate on page refresh.
+- restores token from `localStorage`
+- calls `/auth/me` on startup
+- stores token and serialized user locally
+- clears auth on 401
 
-### `ThemeContext`
+This is important because some older docs described in-memory-only auth. The actual codebase currently persists auth in browser storage.
 
-On mount, fetches `/api/theme` and applies settings to `:root` via CSS custom properties:
+### Customer Auth Context
 
-```typescript
-root.style.setProperty('--accent',      hexToRgb(t.primaryColor));
-root.style.setProperty('--accent-hex',  t.primaryColor);
-root.style.setProperty('--accent2',     hexToRgb(t.accentColor));
-root.style.setProperty('--radius',      radiusMap[t.borderRadius]);
-root.style.setProperty('--anim-speed',  speedMap[t.animationSpeed]);
-root.classList.toggle('light-mode', t.mode === 'light');
-```
+The customer portal auth context:
 
-Tailwind classes like `bg-accent` consume `--accent` via the custom color config. Light mode is toggled by the `html.light-mode` class.
+- restores `customer_token` from `localStorage`
+- calls `/customer/auth/me`
+- exposes `customer`, `loading`, `login`, and `logout`
 
----
+### Theme Context
 
-## Analytics Hook (`useTracker`)
+Theme context exists in public and admin apps and fetches `/api/theme` to apply CSS variables and light/dark behavior.
 
-`apps/public/src/hooks/useTracker.ts` runs at app level and tracks every route change:
+Theme values currently include:
 
-```typescript
-useEffect(() => {
-  if (pathname.startsWith('/admin')) return;   // skip admin routes
-  if (_trackedPaths.has(pathname)) return;     // dedupe StrictMode double-fire
-  _trackedPaths.add(pathname);
-  // ... track PAGE_VIEW
-  return () => { _trackedPaths.delete(pathname); };
-}, [pathname]);
-```
+- mode
+- primary color
+- accent color
+- sans/mono/display fonts
+- border radius
+- animation speed
+- custom CSS
 
-Module-level Sets deduplicate events that React StrictMode would fire twice in development:
-- `_trackedPaths` — prevents double PAGE_VIEW per route
-- `_viewedSlugs` — prevents double BLOG_VIEW per post
+## Data Fetching Pattern
 
-Named tracker functions are exported for direct use in event handlers:
+The current frontend architecture relies mostly on:
 
-```typescript
-export const trackProjectView = (id, title) => trackEvent('PROJECT_VIEW', ...);
-export const trackResumeDownload = (fileName) => trackEvent('RESUME_DOWNLOAD', ...);
-```
+- `useState`
+- `useEffect`
+- `useCallback`
+- local page-managed loading/error state
+- React Context only for auth/theme
 
----
+That means the apps are functional and straightforward, but they currently do not use a dedicated server-state library such as TanStack Query.
 
-## PDF Generation (`utils/pdf.ts`)
+This shows up especially in:
 
-PDF generation uses the browser's native `window.print()` API — no third-party libraries required. The flow:
+- repeated loading state patterns
+- repeated API fetch boilerplate
+- manual refetch behavior after mutations
+- duplicated request handling across admin pages
 
-1. Fetch structured data from the appropriate `/api/pdf/*` endpoint
-2. Build an HTML string with inline CSS and data interpolation
-3. Open a new browser window with the HTML
-4. Call `window.print()` after a 600ms delay (allows the page to render)
+The docs should reflect this honestly because it directly informs the roadmap.
 
-The user's browser print dialog opens, and they can save as PDF.
+## Analytics Hooks
 
-Available exports:
-- `downloadResumePDF()` — profile, skills, stats, featured projects
-- `downloadPortfolioPDF()` — full portfolio with projects, blog, services tables
-- `downloadReceiptPDF(payment)` — itemized payment receipt
-- `downloadAnalyticsReportPDF(days)` — visitor metrics and top pages
+The public and admin codebases both contain tracker hooks, but public visitor analytics are the primary analytics source.
 
----
+Current tracking implementation includes:
 
-## Design System
+- session ID in `sessionStorage`
+- device ID in `localStorage`
+- route-level tracking
+- explicit content/event helpers
 
-Tailwind is configured with a custom design system in `tailwind.config.ts`:
+Tracked behaviors include things like:
 
-**Colors:**
-- `accent` — primary brand color (default: indigo-500, overridable via ThemeContext)
-- `surface-900` / `surface-950` — dark card and page backgrounds
-- All slate shades for text hierarchy
+- page views
+- blog views and blog engagement
+- project interactions
+- resume interactions
+- service inquiry interactions
+- inquiry submits
 
-**Typography:**
-- `font-sans` — Plus Jakarta Sans (body text)
-- `font-mono` — JetBrains Mono (code, labels)
-- `font-display` — Syne (headings)
+## Chatbot Integration
 
-**Component Classes** (in `index.css`):
-- `.card` — base card with surface bg and border
-- `.card-hover` — card with accent hover effect
-- `.btn`, `.btn-primary`, `.btn-outline`, `.btn-ghost`, `.btn-danger` — button variants
-- `.input`, `.label`, `.form-group` — form controls
-- `.tag`, `.badge` — inline labels
-- `.stat-card` — dashboard stat card
-- `.data-table` — admin data tables
-- `.gradient-text`, `.gradient-text-accent` — heading gradient effects
-- `.section-label` — mono caps section eyebrow
-- `.glow-line` — horizontal accent gradient line
+The chatbot is mounted in:
 
----
+- `apps/public/src/components/layout/PublicLayout.tsx`
+- `apps/customer/src/components/layout/CustomerLayout.tsx`
 
-## Animations
+Important details:
 
-Framer Motion is used throughout:
+- the public app uses the assistant without auth
+- the customer app passes the current auth token for customer-aware support
+- the UI supports suggestions and rendered links
+- it is not currently mounted in the admin app
 
-**Page transitions:** `AnimatePresence` wraps route content with `opacity` fade + `y` slide
-**Section reveals:** `whileInView` with `viewport={{ once: true }}` for scroll animations
-**Staggered lists:** Custom variants with `delay: i * 0.1` for item lists
-**Interactive elements:** `whileHover` scale and lift effects on cards
-**Counters:** `motion.div` animate from `0` to target value on mount
+## Current State Management Summary
 
-Animation speed is controlled globally via the `--anim-speed` CSS variable set by ThemeContext.
+Use the current architecture as:
 
----
+- React Context for auth and theme
+- component-local state for forms, modals, filters, pagination, and temporary UI
+- Axios modules for API access
 
-## State Management
+Do not describe this repo as Redux-based. It is not.
 
-No global state library (Redux, Zustand) is used. State is managed at the component level with `useState` and `useCallback`, with React Context only for truly cross-cutting concerns (auth, theme).
+## Recommended Frontend Evolution
 
-This keeps the codebase simple and ensures each page component owns its data fetching lifecycle.
+The best next frontend architecture improvement is:
+
+- add TanStack Query for server state
+
+Why that fits better than Redux:
+
+- most current complexity is API/state synchronization, not local event-driven state
+- the apps already have many fetch-heavy pages
+- cache + invalidation would help more than a global reducer store
+
+Redux could make sense later only if the project introduces genuinely complex cross-page client-side workflows such as:
+
+- multi-step builders
+- cross-view draft editors
+- real-time collaborative state
+- large shared UI orchestration
+
+At the current stage, TanStack Query plus the existing contexts is the cleaner direction.
