@@ -49,8 +49,9 @@ export const deleteResume = (id: string) => api.delete(`/resume/${id}`);
 
 // Inquiries
 export const submitInquiry = (data: Record<string, unknown>) => api.post('/inquiries', data);
-export const getInquiries = (params?: { page?: number; status?: string }) => api.get('/inquiries', { params });
+export const getInquiries = (params?: { page?: number; status?: string; stage?: string }) => api.get('/inquiries', { params });
 export const updateInquiryStatus = (id: string, status: string) => api.patch(`/inquiries/${id}/status`, { status });
+export const updateInquiryStage  = (id: string, stage: string, note?: string) => api.patch(`/inquiries/${id}/stage`, { stage, note });
 export const deleteInquiry = (id: string) => api.delete(`/inquiries/${id}`);
 
 // Analytics

@@ -13,54 +13,30 @@ This document tracks tasks that are currently being worked on. Move a task here 
 
 ---
 
-## Task: TanStack Query across all three apps
+## Task: CRM-style inquiry pipeline
 
-**Status:** Not started
-**Source:** `planned.md` → Task 1
-**Branch:** `feat/tanstack-query`
-**Started:** —
+**Status:** Complete — pending commit
+**Source:** `planned.md` → Task 6
+**Branch:** `main`
+**Started:** 2026-07-02
 **Commit:** —
 
-### Goal
+### What was done
 
-Replace the repetitive `useState + useEffect + loading` patterns across `apps/public`, `apps/admin`, and `apps/customer` with `@tanstack/react-query`. Adds frontend caching, background refetching, and consistent loading/error state without any backend changes.
-
-### Sub-tasks
-
-- [ ] Install `@tanstack/react-query` in all three apps
-- [ ] Add `QueryClientProvider` in each app entrypoint (`main.tsx`)
-- [ ] `apps/public` — convert:
-  - [ ] Profile fetch
-  - [ ] Services fetch
-  - [ ] Projects fetch
-  - [ ] Blog list + single post
-  - [ ] Testimonials fetch
-  - [ ] Theme fetch
-- [ ] `apps/admin` — convert:
-  - [ ] Analytics summary, blogs, projects, visitors
-  - [ ] Inquiries list
-  - [ ] Payments list + analytics
-  - [ ] Notifications
-  - [ ] Customers list
-  - [ ] Blog manager
-  - [ ] Projects manager
-  - [ ] Services manager
-  - [ ] Testimonials manager
-- [ ] `apps/customer` — convert:
-  - [ ] Payments list
-  - [ ] Profile
-  - [ ] Notifications
-  - [ ] Messages
-- [ ] Add `useMutation` + `invalidateQueries` for all create/update/delete actions
-- [ ] Remove all replaced `useState + useEffect` fetch patterns
-
-### Notes
-
-- Use `queryKey` naming convention: `['profile']`, `['projects']`, `['blog', slug]`, etc.
-- Default `staleTime: 30_000` (30s) — backend cache is the source of truth for longer TTLs
-- Wrap each app in a single `QueryClientProvider` at the root, not per-page
-- Do not remove React Context — it handles auth/theme state, not server state
-
----
-
-<!-- Add more active tasks below -->
+- Added `InquiryStage` enum (`NEW | QUALIFIED | PROPOSAL_SENT | WON | LOST`) to Prisma schema
+- Added `stage` and `stageUpdatedAt` fields to `Inquiry` model
+- Added `InquiryStageHistory` model (tracks every stage transition with optional note)
+- Migration: `20260703025221_add_inquiry_pipeline`
+- New backend endpoint: `PATCH /admin/inquiries/:id/stage`
+- Updated `getInquiries` to accept `stage` query param for filtering
+- Updated cache key to include stage filter
+- New frontend mutation hook: `useUpdateInquiryStageMutation`
+- Updated `Inquiry` type + `InquiryStage` type export
+- Updated `getInquiries` API call to pass stage param
+- Updated query key factory to include stage
+- Rewrote `InquiriesManager.tsx`:
+  - Pipeline summary row (5 clickable cards, one per stage, with count)
+  - Stage filter tabs (click a card to filter by stage)
+  - Stage column in the table with colored dropdown selector
+  - Stage selector in the detail modal alongside status
+  - `stageUpdatedAt` shown in modal when set

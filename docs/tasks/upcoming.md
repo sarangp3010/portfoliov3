@@ -77,11 +77,25 @@ This makes the existing page section system much more valuable.
 Why this matters:
 This is a high-utility quality-of-life feature and makes the admin app feel much more like a real SaaS product.
 
+### 6. Upgrade overall code quality across apps and API
+
+- Audit `apps/public`, `apps/admin`, `apps/customer`, and `server` for low-signal code patterns
+- Remove unused imports, dead helpers, stale state, duplicated fetch logic, and unnecessary re-renders
+- Tighten TypeScript types where `any`, loose object shapes, or repetitive inline types are still used
+- Extract repeated logic into shared hooks, utilities, or typed helpers where that reduces complexity
+- Simplify oversized components and controllers without changing product behavior
+- Standardize query, mutation, error-handling, and loading patterns after the recent TanStack Query migration
+- Clean up API/controller/service boundaries where logic is in the wrong layer
+- Run build/typecheck passes and leave the repo in a cleaner, more maintainable state than before
+
+Why this matters:
+This is the best follow-up stabilization task after recent feature work. It reduces maintenance cost, improves readability, and makes future features safer and faster to build.
+
 ## Medium Tasks
 
 These are the best next product features for this repo. They usually require new endpoints, AI service modules, UI additions, and some schema changes.
 
-### 6. AI Inquiry Triage
+### 7. AI Inquiry Triage
 
 This should be the first major AI workflow feature.
 
@@ -120,7 +134,7 @@ Suggested frontend additions:
 Why this matters:
 This turns incoming inquiries into a smarter lead workflow and is the highest-impact AI feature for the current project.
 
-### 7. AI Content Assistant
+### 8. AI Content Assistant
 
 This should be the second major AI workflow feature.
 
@@ -156,7 +170,7 @@ Suggested frontend additions:
 Why this matters:
 This is a highly visible, frequently used feature that fits the admin dashboard naturally.
 
-### 8. AI Analytics Summaries
+### 9. AI Analytics Summaries
 
 This should upgrade the current rule-based smart insights into a true AI-assisted decision layer.
 
@@ -186,7 +200,7 @@ Suggested frontend additions:
 Why this matters:
 Your analytics data is already rich. This feature turns it into useful executive-style feedback.
 
-### 9. Upgrade the customer support assistant
+### 10. Upgrade the customer support assistant
 
 The chatbot already exists. The next step is turning it into a stronger customer-support feature.
 

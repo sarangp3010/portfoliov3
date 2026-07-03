@@ -1,6 +1,6 @@
 export const inquiryKeys = {
   all: ['inquiries'] as const,
-  list: (params: { page: number; status?: string }) => [...inquiryKeys.all, 'list', params] as const,
+  list: (params: { page: number; status?: string; stage?: string }) => [...inquiryKeys.all, 'list', params] as const,
 };
 
 export const adminQueryKeys = {

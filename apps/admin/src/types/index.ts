@@ -86,6 +86,8 @@ export interface Resume {
   createdAt: string;
 }
 
+export type InquiryStage = 'NEW' | 'QUALIFIED' | 'PROPOSAL_SENT' | 'WON' | 'LOST';
+
 export interface Inquiry {
   id: string;
   name: string;
@@ -94,6 +96,8 @@ export interface Inquiry {
   message: string;
   serviceType?: string;
   status: 'UNREAD' | 'READ' | 'REPLIED' | 'ARCHIVED';
+  stage: InquiryStage;
+  stageUpdatedAt?: string;
   ipAddress?: string;
   createdAt: string;
 }

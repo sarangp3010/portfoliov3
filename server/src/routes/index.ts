@@ -12,7 +12,7 @@ import {
   getServices, createService, updateService, deleteService, deleteAllServices,
   getTestimonials, createTestimonial, updateTestimonial, deleteTestimonial, deleteAllTestimonials,
   getActiveResume, getAllResumes, uploadResume, downloadResume, setActiveResume, deleteResume,
-  submitInquiry, getInquiries, updateInquiryStatus, deleteInquiry,
+  submitInquiry, getInquiries, updateInquiryStatus, updateInquiryStage, deleteInquiry,
 } from '../controllers/content.controller.js';
 import { track, getSummary, getBlogStats, getProjectStats, getVisitorStats } from '../controllers/analytics.controller.js';
 import { listFlags, toggleFlag, patchFlag, publicFlags } from '../controllers/flags.controller.js';
@@ -115,6 +115,7 @@ export const createRouter = () => {
   r.post('/inquiries', submitInquiry);
   r.get('/inquiries', ...admin, getInquiries);
   r.patch('/inquiries/:id/status', ...admin, updateInquiryStatus);
+  r.patch('/inquiries/:id/stage',  ...admin, updateInquiryStage);
   r.delete('/inquiries/:id', ...admin, deleteInquiry);
 
   // ─── Analytics ────────────────────────────────────────────────────────────

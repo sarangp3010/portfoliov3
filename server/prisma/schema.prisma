@@ -120,17 +120,33 @@ model Resume {
 }
 
 model Inquiry {
-  id          String        @id @default(cuid())
-  name        String
-  email       String
-  subject     String
-  message     String        @db.Text
-  serviceType String?
-  status      InquiryStatus @default(UNREAD)
-  ipAddress   String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id             String                @id @default(cuid())
+  name           String
+  email          String
+  subject        String
+  message        String                @db.Text
+  serviceType    String?
+  status         InquiryStatus         @default(UNREAD)
+  stage          InquiryStage          @default(NEW)
+  stageUpdatedAt DateTime?
+  ipAddress      String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  stageHistory   InquiryStageHistory[]
   @@index([status])
+  @@index([stage])
+  @@index([createdAt])
+}
+
+model InquiryStageHistory {
+  id        String        @id @default(cuid())
+  inquiryId String
+  inquiry   Inquiry       @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  from      InquiryStage?
+  to        InquiryStage
+  note      String?
+  createdAt DateTime      @default(now())
+  @@index([inquiryId])
   @@index([createdAt])
 }
 
@@ -252,6 +268,14 @@ enum InquiryStatus {
   READ
   REPLIED
   ARCHIVED
+}
+
+enum InquiryStage {
+  NEW
+  QUALIFIED
+  PROPOSAL_SENT
+  WON
+  LOST
 }
 
 enum EventType {

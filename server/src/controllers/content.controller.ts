@@ -137,7 +137,7 @@ export const uploadResume = async (req: Request, res: Response, next: NextFuncti
   } catch (err) { next(err); }
 };
 
-export const downloadResume = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const downloadResume = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const resume = await prisma.resume.findFirst({ where: { isActive: true } });
     if (!resume) throw new AppError('No resume available', 404);
@@ -188,9 +188,13 @@ export const getInquiries = async (req: Request, res: Response, next: NextFuncti
     const page = Math.max(1, parseInt(req.query.page as string ?? '1', 10));
     const limit = 20;
     const status = req.query.status as string | undefined;
-    const where = status ? { status: status as any } : {};
+    const stage  = req.query.stage  as string | undefined;
+    const where = {
+      ...(status ? { status: status as any } : {}),
+      ...(stage  ? { stage:  stage  as any } : {}),
+    };
     const data = await cached(
-      `inquiries:list:${page}:${status ?? 'all'}`,
+      `inquiries:list:${page}:${status ?? 'all'}:${stage ?? 'all'}`,
       async () => {
         const [inquiries, total] = await Promise.all([
           prisma.inquiry.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' } }),
@@ -201,6 +205,22 @@ export const getInquiries = async (req: Request, res: Response, next: NextFuncti
       60_000,
     );
     res.json({ success: true, data });
+  } catch (err) { next(err); }
+};
+
+export const updateInquiryStage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id    = String(req.params.id);
+    const stage = req.body.stage as string;
+    const note  = req.body.note  as string | undefined;
+    const existing = await prisma.inquiry.findUnique({ where: { id } });
+    if (!existing) { res.status(404).json({ success: false, error: 'Not found' }); return; }
+    const [inq] = await prisma.$transaction([
+      prisma.inquiry.update({ where: { id }, data: { stage: stage as any, stageUpdatedAt: new Date() } }),
+      prisma.inquiryStageHistory.create({ data: { inquiryId: id, from: existing.stage, to: stage as any, note } }),
+    ]);
+    await cacheDeletePattern('inquiries:list:');
+    res.json({ success: true, data: inq });
   } catch (err) { next(err); }
 };
 

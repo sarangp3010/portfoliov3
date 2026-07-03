@@ -13,11 +13,11 @@ interface InquiriesResponse {
   };
 }
 
-export function useInquiriesQuery(page: number, status?: string) {
+export function useInquiriesQuery(page: number, status?: string, stage?: string) {
   return useQuery({
-    queryKey: inquiryKeys.list({ page, ...(status ? { status } : {}) }),
+    queryKey: inquiryKeys.list({ page, ...(status ? { status } : {}), ...(stage ? { stage } : {}) }),
     queryFn: async () => {
-      const response = await getInquiries({ page, status });
+      const response = await getInquiries({ page, status, stage });
       return response.data as InquiriesResponse;
     },
     placeholderData: previous => previous,

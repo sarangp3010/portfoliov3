@@ -4,6 +4,111 @@ This document logs all completed tasks, the changes made, and the commit(s) asso
 
 ---
 
+## Task: TanStack Query across all three apps
+
+**Status:** Completed
+**Commit:** `0214eb2`
+**Date:** 2026-07-02
+
+### What was done
+
+Moved the frontend apps to TanStack Query-based server state handling and replaced the repeated `useState + useEffect + loading` fetch pattern on the main read-heavy screens across `apps/public`, `apps/admin`, and `apps/customer`.
+
+#### Public app
+- Added shared public query keys and hooks
+- Converted public data-driven pages and section loading:
+  - `Home`
+  - `Blog`
+  - `Services`
+  - `Resume`
+  - `Testimonials`
+  - `useSections`
+
+#### Admin app
+- Added shared admin query keys and query/mutation hook modules
+- Converted admin dashboards, management pages, and tooling screens including:
+  - `Dashboard`
+  - `Analytics`
+  - `PaymentsManager`
+  - `NotificationsPage`
+  - `ProjectsManager`
+  - `ServicesManager`
+  - `BlogManager`
+  - `TestimonialsManager`
+  - `ProfileEditor`
+  - `ResumeManager`
+  - `CustomersManager`
+  - `EmailTemplatesManager`
+  - `PageSectionsManager`
+  - `DevDiagnostics`
+  - `InsightsPanel`
+  - `FeatureFlags`
+  - `SessionsViewer`
+
+#### Customer app
+- Added shared customer query keys and hooks
+- Converted:
+  - `Dashboard`
+  - `Payments`
+  - `PaymentMethods`
+  - `Services`
+  - `NotificationsPage`
+
+#### Query behavior
+- Added `useMutation` + invalidation flows for admin and customer write actions where the migrated pages needed them
+- Centralized query key definitions per app to keep cache invalidation predictable
+- Kept auth/theme/context state in React Context and moved only server state into TanStack Query
+
+### Verification
+
+- `npm run build --prefix apps/public`
+- `npm run build --prefix apps/admin`
+- `npm run build --prefix apps/customer`
+
+### Files changed
+
+- `apps/public/src/lib/queryKeys.ts`
+- `apps/public/src/hooks/queries/usePublicQueries.ts`
+- `apps/public/src/hooks/useSections.ts`
+- `apps/public/src/pages/public/Home.tsx`
+- `apps/public/src/pages/public/Blog.tsx`
+- `apps/public/src/pages/public/Services.tsx`
+- `apps/public/src/pages/public/Resume.tsx`
+- `apps/public/src/pages/public/Testimonials.tsx`
+- `apps/admin/src/lib/queryKeys.ts`
+- `apps/admin/src/hooks/queries/useDashboardQuery.ts`
+- `apps/admin/src/hooks/queries/useAnalyticsPageQuery.ts`
+- `apps/admin/src/hooks/queries/usePaymentsQueries.ts`
+- `apps/admin/src/hooks/queries/useNotificationsQuery.ts`
+- `apps/admin/src/hooks/queries/useContentManagerQueries.ts`
+- `apps/admin/src/hooks/queries/useAdminToolingQueries.ts`
+- `apps/admin/src/pages/admin/Dashboard.tsx`
+- `apps/admin/src/pages/admin/Analytics.tsx`
+- `apps/admin/src/pages/admin/PaymentsManager.tsx`
+- `apps/admin/src/pages/admin/NotificationsPage.tsx`
+- `apps/admin/src/pages/admin/ProjectsManager.tsx`
+- `apps/admin/src/pages/admin/ServicesManager.tsx`
+- `apps/admin/src/pages/admin/BlogManager.tsx`
+- `apps/admin/src/pages/admin/TestimonialsManager.tsx`
+- `apps/admin/src/pages/admin/ProfileEditor.tsx`
+- `apps/admin/src/pages/admin/ResumeManager.tsx`
+- `apps/admin/src/pages/admin/CustomersManager.tsx`
+- `apps/admin/src/pages/admin/EmailTemplatesManager.tsx`
+- `apps/admin/src/pages/admin/PageSectionsManager.tsx`
+- `apps/admin/src/pages/admin/DevDiagnostics.tsx`
+- `apps/admin/src/pages/admin/InsightsPanel.tsx`
+- `apps/admin/src/pages/admin/FeatureFlags.tsx`
+- `apps/admin/src/pages/admin/SessionsViewer.tsx`
+- `apps/customer/src/lib/queryKeys.ts`
+- `apps/customer/src/hooks/queries/useCustomerQueries.ts`
+- `apps/customer/src/pages/customer/Dashboard.tsx`
+- `apps/customer/src/pages/customer/Payments.tsx`
+- `apps/customer/src/pages/customer/PaymentMethods.tsx`
+- `apps/customer/src/pages/customer/Services.tsx`
+- `apps/customer/src/pages/customer/NotificationsPage.tsx`
+
+---
+
 ## Task: Expand Backend Caching for Read-Heavy Endpoints
 
 **Status:** Completed
