@@ -7,7 +7,7 @@
  *   public.localhost:5173   →  Vite (public)    :3000
  *   admin.localhost:5173    →  Vite (admin)      :3001
  *   customer.localhost:5173 →  Vite (customer)   :3002
- *   api.localhost:5173      →  Express API       :5000
+ *   api.localhost:5173      →  Express API       :5001
  *   localhost:5173          →  Vite (public)     :3000  (default)
  *
  * All *.localhost subdomains resolve to 127.0.0.1 natively in modern
@@ -24,7 +24,7 @@ const ROUTES = {
   public:   'http://127.0.0.1:3000',
   admin:    'http://127.0.0.1:3001',
   customer: 'http://127.0.0.1:3002',
-  api:      'http://127.0.0.1:5000',
+  api:      'http://127.0.0.1:5001',
 };
 const DEFAULT_TARGET = ROUTES.public;
 
@@ -108,7 +108,7 @@ server.listen(PROXY_PORT, '0.0.0.0', () => {
   console.log(`  ${c('green', '▶')} ${c('bold', 'http://public.localhost:5173')}   ${c('dim', '→ Vite :3000')}`);
   console.log(`  ${c('green', '▶')} ${c('bold', 'http://admin.localhost:5173')}    ${c('dim', '→ Vite :3001')}`);
   console.log(`  ${c('green', '▶')} ${c('bold', 'http://customer.localhost:5173')} ${c('dim', '→ Vite :3002')}`);
-  console.log(`  ${c('yellow', '▶')} ${c('bold', 'http://api.localhost:5173')}     ${c('dim', '→ Express :5000')}`);
+  console.log(`  ${c('yellow', '▶')} ${c('bold', 'http://api.localhost:5173')}     ${c('dim', '→ Express :5001')}`);
   console.log('');
   console.log(`  ${c('dim', 'Proxy listening on port')} ${c('cyan', String(PROXY_PORT))}`);
   console.log('');

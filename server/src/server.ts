@@ -15,9 +15,8 @@ async function start() {
     await prisma.$connect();
     logger.info('Database connected');
     await verifySmtp();
-    const host = config.nodeEnv === 'development' ? '127.0.0.1' : '0.0.0.0';
-    app.listen(config.port, host, () => {
-      logger.info(`API server listening on ${host}:${config.port} [${config.nodeEnv}]`);
+    app.listen(config.port, config.host, () => {
+      logger.info(`API server listening on ${config.host}:${config.port} [${config.nodeEnv}]`);
       if (config.nodeEnv === 'development') {
         logger.info('Access via dev proxy → http://api.localhost:5173');
       }

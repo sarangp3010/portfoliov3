@@ -8,11 +8,12 @@ export default defineConfig(({ command }) => ({
   plugins: [react()],
   server: {
     port: 3000,
-    host: '127.0.0.1',
+    // Bind to all interfaces so the app can be opened via this machine's IP.
+    host: '0.0.0.0',
     strictPort: true,
     proxy: {
-      '/api':     { target: 'http://127.0.0.1:5000', changeOrigin: true },
-      '/uploads': { target: 'http://127.0.0.1:5000', changeOrigin: true },
+      '/api':     { target: 'http://127.0.0.1:5001', changeOrigin: true },
+      '/uploads': { target: 'http://127.0.0.1:5001', changeOrigin: true },
     },
   },
   build: {
