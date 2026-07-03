@@ -1,23 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  getEmailTemplates, createEmailTemplate, updateEmailTemplate,
-  deleteEmailTemplate, resetEmailTemplate, previewEmailTemplate, sendTestEmail,
-} from '../../api/index';
+  useAdminEmailTemplateMutations,
+  useAdminEmailTemplatesQuery,
+} from '../../hooks/queries/useAdminToolingQueries';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface EmailTemplate {
-  id: string;
-  key: string;
-  name: string;
-  subject: string;
-  html: string;
-  text?: string;
-  variables: string[];
-  isSystem: boolean;
-  updatedAt: string;
-}
+type EmailTemplate = NonNullable<ReturnType<typeof useAdminEmailTemplatesQuery>['data']>[number];
 
 type Tab = 'subject' | 'html' | 'preview';
 
@@ -63,8 +53,6 @@ function Badge({ label, color = 'indigo' }: { label: string; color?: string }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function EmailTemplatesManager() {
-  const [templates, setTemplates]     = useState<EmailTemplate[]>([]);
-  const [loading, setLoading]         = useState(true);
   const [selected, setSelected]       = useState<EmailTemplate | null>(null);
   const [isNew, setIsNew]             = useState(false);
   const [tab, setTab]                 = useState<Tab>('subject');
@@ -80,19 +68,10 @@ export default function EmailTemplatesManager() {
   const [toast, setToast]             = useState('');
   const [form, setForm]               = useState({ key: '', name: '', subject: '', html: '', text: '' });
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const { data: templates = [], isLoading: loading, refetch } = useAdminEmailTemplatesQuery();
+  const { createTemplate, updateTemplate, deleteTemplate, resetTemplate, previewTemplate, sendTest } = useAdminEmailTemplateMutations();
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const r = await getEmailTemplates();
-      setTemplates(r.data.data);
-    } catch { showToast('Failed to load templates'); }
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => { load(); }, []);
 
   const openTemplate = (tpl: EmailTemplate) => {
     setSelected(tpl);
@@ -120,15 +99,15 @@ export default function EmailTemplatesManager() {
     try {
       if (isNew) {
         if (!form.key) { showToast('Template key is required'); setSaving(false); return; }
-        const r = await createEmailTemplate(form);
-        setTemplates(prev => [...prev, r.data.data].sort((a, b) => a.key.localeCompare(b.key)));
+        const r = await createTemplate.mutateAsync(form);
         setSelected(r.data.data);
         setIsNew(false);
+        await refetch();
         showToast('Template created');
       } else if (selected) {
-        const r = await updateEmailTemplate(selected.id, { name: form.name, subject: form.subject, html: form.html, text: form.text });
-        setTemplates(prev => prev.map(t => t.id === selected.id ? r.data.data : t));
+        const r = await updateTemplate.mutateAsync({ id: selected.id, payload: { name: form.name, subject: form.subject, html: form.html, text: form.text } });
         setSelected(r.data.data);
+        await refetch();
         showToast('Saved');
       }
     } catch (e: unknown) {
@@ -141,8 +120,8 @@ export default function EmailTemplatesManager() {
     if (!selected || selected.isSystem) return;
     setDeleting(true);
     try {
-      await deleteEmailTemplate(selected.id);
-      setTemplates(prev => prev.filter(t => t.id !== selected.id));
+      await deleteTemplate.mutateAsync(selected.id);
+      await refetch();
       setSelected(null);
       setIsNew(false);
       showToast('Deleted');
@@ -155,11 +134,11 @@ export default function EmailTemplatesManager() {
     if (!selected) return;
     setResetting(true);
     try {
-      const r = await resetEmailTemplate(selected.id);
-      setTemplates(prev => prev.map(t => t.id === selected.id ? r.data.data : t));
+      const r = await resetTemplate.mutateAsync(selected.id);
       setSelected(r.data.data);
       setForm({ key: r.data.data.key, name: r.data.data.name, subject: r.data.data.subject, html: r.data.data.html, text: r.data.data.text ?? '' });
       setPreviewHtml('');
+      await refetch();
       showToast('Reset to default');
     } catch { showToast('Reset failed'); }
     setResetting(false);
@@ -171,9 +150,10 @@ export default function EmailTemplatesManager() {
     try {
       // Save first so preview reflects current edits
       if (form.html !== selected.html || form.subject !== selected.subject) {
-        await updateEmailTemplate(selected.id, { subject: form.subject, html: form.html });
+        await updateTemplate.mutateAsync({ id: selected.id, payload: { subject: form.subject, html: form.html } });
+        await refetch();
       }
-      const r = await previewEmailTemplate(selected.id);
+      const r = await previewTemplate.mutateAsync(selected.id);
       setPreviewHtml(r.data.data.html);
       setTab('preview');
     } catch { showToast('Preview failed'); }
@@ -185,7 +165,7 @@ export default function EmailTemplatesManager() {
     setTestSending(true);
     setTestMsg('');
     try {
-      await sendTestEmail(selected.id, testTo);
+      await sendTest.mutateAsync({ id: selected.id, to: testTo });
       setTestMsg(`✓ Sent to ${testTo}`);
     } catch { setTestMsg('✗ Send failed'); }
     setTestSending(false);

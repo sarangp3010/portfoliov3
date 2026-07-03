@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getAnalyticsSessions, getSessionTimeline } from '../../api/index';
 import type { SessionDetail } from '../../types/index';
 import { Spinner } from '../../components/ui/Spinner';
+import {
+  useAdminAnalyticsSessionsQuery,
+  useAdminSessionTimelineQuery,
+} from '../../hooks/queries/useAdminToolingQueries';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -301,33 +304,14 @@ export default function SessionsViewer() {
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedId = searchParams.get('session');
 
-  const [sessions, setSessions]       = useState<any[]>([]);
-  const [total, setTotal]             = useState(0);
   const [page, setPage]               = useState(1);
-  const [pages, setPages]             = useState(1);
-  const [detail, setDetail]           = useState<SessionDetail | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [detailLoading, setDetailLoading] = useState(false);
   const [filter, setFilter]           = useState<'all' | 'high' | 'inquiry' | 'resume'>('all');
+  const { data: sessionsData, isLoading: loading } = useAdminAnalyticsSessionsQuery(page);
+  const { data: detail, isLoading: detailLoading } = useAdminSessionTimelineQuery(selectedId);
 
-  useEffect(() => {
-    setLoading(true);
-    getAnalyticsSessions(page).then(r => {
-      const d = r.data.data;
-      setSessions(d.sessions ?? []);
-      setTotal(d.total ?? 0);
-      setPages(d.pages ?? 1);
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, [page]);
-
-  useEffect(() => {
-    if (!selectedId) { setDetail(null); return; }
-    setDetailLoading(true);
-    getSessionTimeline(selectedId)
-      .then(r => setDetail(r.data.data ?? null))
-      .catch(() => setDetail(null))
-      .finally(() => setDetailLoading(false));
-  }, [selectedId]);
+  const sessions = sessionsData?.sessions ?? [];
+  const total = sessionsData?.total ?? 0;
+  const pages = sessionsData?.pages ?? 1;
 
   const selectSession = (id: string) => setSearchParams({ session: id });
   const clearSession  = () => setSearchParams({});

@@ -1,14 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Cell, PieChart, Pie,
 } from 'recharts';
-import { getPaymentAnalytics, listAdminPayments } from '../../api';
-import { PaymentAnalytics, Payment } from '../../types';
 import { Spinner } from '../../components/ui/Spinner';
 import { downloadReceiptPDF, downloadAnalyticsReportPDF } from '../../utils/pdf';
+import { useAdminPaymentsQuery, usePaymentAnalyticsQuery } from '../../hooks/queries/usePaymentsQueries';
+import type { Payment } from '../../types';
 
 const fmt = (cents: number, currency = 'usd') =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
@@ -56,37 +56,16 @@ const StatCard = ({ label, value, sub, icon, color = '' }: { label: string; valu
 );
 
 export default function PaymentsManager() {
-  const [analytics, setAnalytics] = useState<PaymentAnalytics | null>(null);
-  const [payments, setPayments]   = useState<Payment[]>([]);
-  const [total, setTotal]         = useState(0);
   const [page, setPage]           = useState(1);
-  const [pages, setPages]         = useState(1);
   const [days, setDays]           = useState(30);
   const [tab, setTab]             = useState<'overview' | 'transactions'>('overview');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'direct' | 'inquiry'>('all');
-  const [loading, setLoading]     = useState(true);
-  const [txLoading, setTxLoading] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const r = await getPaymentAnalytics(days);
-      setAnalytics(r.data.data);
-    } finally { setLoading(false); }
-  }, [days]);
-
-  useEffect(() => { load(); }, [load]);
-
-  useEffect(() => {
-    if (tab !== 'transactions') return;
-    setTxLoading(true);
-    const src = sourceFilter !== 'all' ? sourceFilter : undefined;
-    listAdminPayments(page, src).then(r => {
-      setPayments(r.data.data.payments ?? []);
-      setTotal(r.data.data.total ?? 0);
-      setPages(r.data.data.pages ?? 1);
-    }).catch(() => {}).finally(() => setTxLoading(false));
-  }, [tab, page, sourceFilter]);
+  const source = sourceFilter !== 'all' ? sourceFilter : undefined;
+  const { data: analytics, isLoading: loading } = usePaymentAnalyticsQuery(days);
+  const { data: transactionsData, isLoading: txLoading } = useAdminPaymentsQuery(page, source, tab === 'transactions');
+  const payments: Payment[] = transactionsData?.payments ?? [];
+  const total = transactionsData?.total ?? 0;
+  const pages = transactionsData?.pages ?? 1;
 
   if (loading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
 

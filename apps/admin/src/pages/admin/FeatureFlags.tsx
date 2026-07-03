@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { getAdminFlags, toggleFlag, patchFlag } from '../../api/index';
+import { useState } from 'react';
 import type { FeatureFlag } from '../../types/index';
 import { Spinner } from '../../components/ui/Spinner';
 import { Modal } from '../../components/ui/Modal';
+import { useAdminFeatureFlagMutations, useAdminFeatureFlagsQuery } from '../../hooks/queries/useAdminToolingQueries';
 
 const CATEGORY_ICONS: Record<string, string> = {
   content: '📝', analytics: '📊', developer: '🔧', performance: '⚡', system: '🖥', general: '⚙️',
@@ -21,22 +21,19 @@ const Toggle = ({ enabled, onChange, loading }: { enabled: boolean; onChange: (v
 );
 
 export default function FeatureFlags() {
-  const [flags, setFlags] = useState<FeatureFlag[]>([]);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [editFlag, setEditFlag] = useState<FeatureFlag | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const { data: flags = [], isLoading: loading, refetch } = useAdminFeatureFlagsQuery();
+  const { toggleFeatureFlag, patchFeatureFlag } = useAdminFeatureFlagMutations();
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
-
-  const load = () => getAdminFlags().then(r => setFlags(r.data.data ?? [])).catch(() => {}).finally(() => setLoading(false));
-  useEffect(() => { load(); }, []);
 
   const handleToggle = async (key: string, enabled: boolean) => {
     setSaving(key);
     try {
-      await toggleFlag(key, enabled);
-      setFlags(prev => prev.map(f => f.key === key ? { ...f, enabled } : f));
+      await toggleFeatureFlag.mutateAsync({ key, enabled });
+      await refetch();
       showToast(`${key} ${enabled ? 'enabled' : 'disabled'}`);
     } catch { showToast('Failed to update flag'); }
     setSaving(null);
@@ -46,8 +43,11 @@ export default function FeatureFlags() {
     if (!editFlag) return;
     setSaving(editFlag.key);
     try {
-      await patchFlag(editFlag.key, { name: editFlag.name, description: editFlag.description, category: editFlag.category });
-      setFlags(prev => prev.map(f => f.key === editFlag.key ? editFlag : f));
+      await patchFeatureFlag.mutateAsync({
+        key: editFlag.key,
+        payload: { name: editFlag.name, description: editFlag.description, category: editFlag.category },
+      });
+      await refetch();
       setEditFlag(null);
       showToast('Flag updated');
     } catch { showToast('Failed to save'); }

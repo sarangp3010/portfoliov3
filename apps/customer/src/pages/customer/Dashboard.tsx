@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { getCustomerPayments, getServicePlans, getDevProfile } from '../../api';
 import { Payment, ServicePlan } from '../../types';
 import { useCustomerAuth } from '../../context/AuthContext';
 import { PUBLIC_URL } from '../../config/urls';
+import { useCustomerDashboardQuery } from '../../hooks/queries/useCustomerQueries';
 
 const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 const statusColor: Record<string, string> = {
@@ -14,18 +13,10 @@ const statusColor: Record<string, string> = {
 
 export default function Dashboard() {
   const { customer } = useCustomerAuth();
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [plans, setPlans] = useState<ServicePlan[]>([]);
-  const [devProfile, setDevProfile] = useState<{ githubUrl?: string; linkedinUrl?: string; websiteUrl?: string } | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    Promise.all([
-      getCustomerPayments(1).then(r => setPayments(r.data.data.payments || [])),
-      getServicePlans().then(r => setPlans(r.data.data || [])),
-      getDevProfile().then(r => setDevProfile(r.data.data)),
-    ]).finally(() => setLoading(false));
-  }, []);
+  const { data, isLoading: loading } = useCustomerDashboardQuery();
+  const payments: Payment[] = data?.payments ?? [];
+  const plans: ServicePlan[] = data?.plans ?? [];
+  const devProfile = data?.devProfile ?? null;
 
   const totalSpend = payments.filter(p => p.status === 'COMPLETED').reduce((s, p) => s + p.amount, 0);
   const completedCount = payments.filter(p => p.status === 'COMPLETED').length;

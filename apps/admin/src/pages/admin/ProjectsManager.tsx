@@ -1,13 +1,13 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { getProjects, createProject, updateProject, deleteProject, deleteAllProjects } from '../../api';
 import { Project } from '../../types';
 import { Modal } from '../../components/ui/Modal';
 import { Spinner } from '../../components/ui/Spinner';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useToast, Toast } from '../../hooks/useToast';
 import { VersionHistory } from '../../components/admin/VersionHistory';
+import { useAdminContentMutations, useAdminProjectsQuery } from '../../hooks/queries/useContentManagerQueries';
 
 const EMPTY: Partial<Project> = {
   title: '', description: '', longDesc: '', techStack: [],
@@ -15,8 +15,7 @@ const EMPTY: Partial<Project> = {
 };
 
 export default function ProjectsManager() {
-  const [items, setItems] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: items = [], isLoading: loading, refetch } = useAdminProjectsQuery();
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState<Partial<Project>>(EMPTY);
   const [editing, setEditing] = useState<string | null>(null);
@@ -25,15 +24,13 @@ export default function ProjectsManager() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
-  const [deletingAll, setDeletingAll] = useState(false);
   const { toast, showToast } = useToast();
-
-  const load = useCallback(() => {
-    setLoading(true);
-    getProjects().then(r => setItems(r.data.data)).catch(() => {}).finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const {
+    createProject: createProjectMutation,
+    updateProject: updateProjectMutation,
+    deleteProject: deleteProjectMutation,
+    deleteAllProjects: deleteAllProjectsMutation,
+  } = useAdminContentMutations();
 
   const openNew  = () => { setForm(EMPTY); setEditing(null); setErr(''); setModal(true); };
   const openEdit = (p: Project) => { setForm({ ...p }); setEditing(p.id); setErr(''); setModal(true); };
@@ -51,9 +48,9 @@ export default function ProjectsManager() {
           : form.techStack,
         order: Number(form.order) || 0,
       };
-      if (editing) await updateProject(editing, payload);
-      else await createProject(payload);
-      close(); load();
+      if (editing) await updateProjectMutation.mutateAsync({ id: editing, payload });
+      else await createProjectMutation.mutateAsync(payload);
+      close();
       showToast(editing ? 'Updated successfully' : 'Created successfully');
     } catch (e: any) { setErr(e.response?.data?.error ?? 'Save failed'); }
     finally { setSaving(false); }
@@ -63,9 +60,8 @@ export default function ProjectsManager() {
     if (!deleteId) return;
     try {
       setDeleting(true);
-      await deleteProject(deleteId);
+      await deleteProjectMutation.mutateAsync(deleteId);
       setDeleteId(null);
-      load();
       showToast('Deleted successfully');
     }
     catch (e: any) { showToast(e.response?.data?.error ?? 'Delete failed', 'error'); }
@@ -74,14 +70,11 @@ export default function ProjectsManager() {
 
   const handleDeleteAll = async () => {
     try {
-      setDeletingAll(true);
-      const response = await deleteAllProjects();
+      const response = await deleteAllProjectsMutation.mutateAsync();
       setDeleteAllOpen(false);
-      load();
       showToast(`Removed ${response.data.count ?? 0} projects`);
     }
     catch (e: any) { showToast(e.response?.data?.error ?? 'Remove all failed', 'error'); }
-    finally { setDeletingAll(false); }
   };
 
   return (
@@ -129,7 +122,7 @@ export default function ProjectsManager() {
                       <button onClick={() => openEdit(p)} className="btn-ghost px-3 py-1 text-xs">Edit</button>
                       <button onClick={() => setDeleteId(p.id)} className="btn-danger px-3 py-1 text-xs">Delete</button>
                     </div>
-                    <VersionHistory contentType="project" contentId={p.id} onRestored={load} />
+                    <VersionHistory contentType="project" contentId={p.id} onRestored={refetch} />
                   </div>
                 </div>
               </motion.div>
@@ -220,7 +213,7 @@ export default function ProjectsManager() {
           <p className="text-red-400/90 text-sm mb-6">This action cannot be undone.</p>
           <div className="flex justify-end gap-3">
             <button onClick={() => setDeleteAllOpen(false)} className="btn-ghost">Cancel</button>
-            <button onClick={handleDeleteAll} disabled={deletingAll} className="btn-danger disabled:opacity-60">{deletingAll ? 'Removing…' : 'Remove All'}</button>
+            <button onClick={handleDeleteAll} disabled={deleteAllProjectsMutation.isPending} className="btn-danger disabled:opacity-60">{deleteAllProjectsMutation.isPending ? 'Removing…' : 'Remove All'}</button>
           </div>
         </div>
       </Modal>

@@ -1,16 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-
-interface Notification {
-  id: string;
-  event: string;
-  message: string;
-  type: 'success' | 'warning' | 'info' | 'error';
-  isRead: boolean;
-  link?: string;
-  createdAt: string;
-}
+import {
+  NotificationItem,
+  useMarkAllNotificationsReadMutation,
+  useMarkNotificationReadMutation,
+  useNotificationsQuery,
+} from '../../hooks/queries/useNotificationsQuery';
 
 const TYPE_DOT: Record<string, string> = {
   success: '#4ade80',
@@ -37,63 +33,33 @@ function timeAgo(iso: string): string {
   return `${days} day${days !== 1 ? 's' : ''} ago`;
 }
 
-function authHeaders(): Record<string, string> {
-  const token = localStorage.getItem('admin_token') || localStorage.getItem('customer_token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
-async function apiFetch(url: string, init?: RequestInit) {
-  const res = await fetch(url, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...init?.headers },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
-
 export default function NotificationsPage() {
   const navigate = useNavigate();
-  const [notifications, setNotifs] = useState<Notification[]>([]);
-  const [loading, setLoading]      = useState(true);
   const [page, setPage]            = useState(1);
-  const [totalPages, setTotalPages]= useState(1);
   const [unreadOnly, setUnreadOnly]= useState(false);
-  const [markingAll, setMarkingAll]= useState(false);
+  const { data, isLoading: loading } = useNotificationsQuery(page, unreadOnly);
+  const markReadMutation = useMarkNotificationReadMutation();
+  const markAllMutation = useMarkAllNotificationsReadMutation();
+  const notifications: NotificationItem[] = data?.notifications ?? [];
+  const totalPages = data?.totalPages ?? 1;
 
-  const fetch = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(page) });
-      if (unreadOnly) params.set('unread', 'true');
-      const data = await apiFetch(`/api/notifications?${params}`);
-      setNotifs(data.data.notifications ?? []);
-      setTotalPages(data.data.totalPages ?? 1);
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
-  }, [page, unreadOnly]);
-
-  useEffect(() => { fetch(); }, [fetch]);
-
-  const handleClick = async (n: Notification) => {
+  const handleClick = async (n: NotificationItem) => {
     if (!n.isRead) {
       try {
-        await apiFetch(`/api/notifications/${n.id}/read`, { method: 'PATCH' });
-        setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x));
+        await markReadMutation.mutateAsync(n.id);
       } catch { /* ignore */ }
     }
     if (n.link) navigate(n.link);
   };
 
   const handleMarkAll = async () => {
-    setMarkingAll(true);
     try {
-      await apiFetch('/api/notifications/read-all', { method: 'PATCH' });
-      setNotifs(prev => prev.map(n => ({ ...n, isRead: true })));
+      await markAllMutation.mutateAsync();
     } catch { /* ignore */ }
-    finally { setMarkingAll(false); }
   };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
+  const markingAll = markAllMutation.isPending;
 
   return (
     <div className="max-w-2xl">

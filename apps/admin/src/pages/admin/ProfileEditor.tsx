@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { getProfile, updateProfile } from '../../api';
 import { Profile } from '../../types';
 import { Spinner } from '../../components/ui/Spinner';
+import { useAdminContentMutations, useAdminProfileQuery } from '../../hooks/queries/useContentManagerQueries';
 
 // Field is defined OUTSIDE ProfileEditor so React sees a stable component
 // identity across renders. Defining it inside caused unmount/remount on every
@@ -20,24 +20,25 @@ const Field = ({ label, name, type = 'text', placeholder = '', value, onChange }
 );
 
 export default function ProfileEditor() {
+  const { data, isLoading: loading } = useAdminProfileQuery();
+  const { updateProfile: updateProfileMutation } = useAdminContentMutations();
   const [profile, setProfile] = useState<Partial<Profile>>({});
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
   const [error, setError]   = useState('');
 
   useEffect(() => {
-    getProfile().then(r => setProfile(r.data.data)).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+    if (data) setProfile(data);
+  }, [data]);
 
   const set = (key: keyof Profile, value: unknown) => setProfile(p => ({ ...p, [key]: value }));
 
   const handleSave = async () => {
-    setSaving(true); setError(''); setSaved(false);
-    try { await updateProfile({ ...profile }); setSaved(true); setTimeout(() => setSaved(false), 3000); }
+    setError(''); setSaved(false);
+    try { await updateProfileMutation.mutateAsync({ ...profile }); setSaved(true); setTimeout(() => setSaved(false), 3000); }
     catch (err: any) { setError(err.response?.data?.error ?? 'Save failed'); }
-    finally { setSaving(false); }
   };
+
+  const saving = updateProfileMutation.isPending;
 
   if (loading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>;
 

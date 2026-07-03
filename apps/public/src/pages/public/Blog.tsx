@@ -1,29 +1,20 @@
-import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
-import { getPosts, getTags } from '../../api';
-import { BlogPost } from '../../types';
+import { usePostsQuery, useTagsQuery } from '../../hooks/queries/usePublicQueries';
 import { PageLoader } from '../../components/ui/Spinner';
 
 const fmt = (d?: string) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 
 export default function Blog() {
-  const [posts, setPosts] = useState<BlogPost[]>([]);
-  const [tags, setTags] = useState<string[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [sp, setSp] = useSearchParams();
   const activeTag = sp.get('tag') ?? undefined;
   const page = parseInt(sp.get('page') ?? '1', 10);
-
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([getPosts({ page, tag: activeTag }), getTags()])
-      .then(([pr, tr]) => { setPosts(pr.data.data.posts); setTotal(pr.data.data.total); setTags(tr.data.data); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [page, activeTag]);
+  const { data: postsData, isLoading: postsLoading } = usePostsQuery(page, activeTag);
+  const { data: tags = [], isLoading: tagsLoading } = useTagsQuery();
+  const posts = postsData?.posts ?? [];
+  const total = postsData?.total ?? 0;
+  const loading = postsLoading || tagsLoading;
 
   if (loading) return <PageLoader />;
 

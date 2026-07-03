@@ -1,41 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import api from '../../api/axios';
-
-interface Customer {
-  id: string;
-  email: string;
-  name: string;
-  phone?: string;
-  provider: string;
-  isActive: boolean;
-  createdAt: string;
-  _count: { payments: number; sessions: number; messages: number };
-}
-
-interface CustomerDetail {
-  id: string;
-  email: string;
-  name: string;
-  phone?: string;
-  provider: string;
-  isActive: boolean;
-  createdAt: string;
-  payments: Array<{ id: string; amount: number; status: string; serviceName?: string; createdAt: string }>;
-  sessions: Array<{ id: string; browser?: string; device?: string; ipAddress?: string; loginAt: string; lastActiveAt: string; isActive: boolean }>;
-  messages: Array<{ id: string; message: string; status: string; createdAt: string }>;
-}
-
-interface ActiveSession {
-  id: string;
-  customerId: string;
-  browser?: string;
-  device?: string;
-  ipAddress?: string;
-  loginAt: string;
-  lastActiveAt: string;
-  customer: { email: string; name: string };
-}
+import {
+  useAdminCustomerDetailQuery,
+  useAdminCustomerMessagesQuery,
+  useAdminCustomerMutations,
+  useAdminCustomersQuery,
+  useAdminCustomerSessionsQuery,
+} from '../../hooks/queries/useAdminToolingQueries';
 
 const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 const providerBadge: Record<string, string> = {
@@ -47,68 +18,26 @@ const providerBadge: Record<string, string> = {
 
 export default function CustomersManager() {
   const [tab, setTab] = useState<'list' | 'sessions' | 'messages'>('list');
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [detail, setDetail] = useState<CustomerDetail | null>(null);
-  const [sessions, setSessions] = useState<ActiveSession[]>([]);
-  const [messages, setMessages] = useState<Array<{ id: string; message: string; status: string; createdAt: string; customer: { name: string; email: string }; adminReply?: string }>>([]);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
 
-  useEffect(() => {
-    if (tab === 'list') loadCustomers();
-    if (tab === 'sessions') loadSessions();
-    if (tab === 'messages') loadMessages();
-  }, [tab, page]);
+  const { data: customerData, isLoading: customersLoading } = useAdminCustomersQuery(page, tab === 'list');
+  const { data: detail } = useAdminCustomerDetailQuery(detailId, tab === 'list' && Boolean(detailId));
+  const { data: sessions = [], isLoading: sessionsLoading } = useAdminCustomerSessionsQuery(tab === 'sessions');
+  const { data: messages = [], isLoading: messagesLoading } = useAdminCustomerMessagesQuery(tab === 'messages');
+  const { toggleCustomer, terminateSession, sendReply: sendReplyMutation } = useAdminCustomerMutations(page);
 
-  const loadCustomers = async () => {
-    setLoading(true);
-    try {
-      const r = await api.get(`/admin/customers?page=${page}`);
-      setCustomers(r.data.data.customers || []);
-      setTotal(r.data.data.total || 0);
-    } finally { setLoading(false); }
-  };
-
-  const loadSessions = async () => {
-    setLoading(true);
-    try {
-      const r = await api.get('/admin/customers/sessions');
-      setSessions(r.data.data || []);
-    } finally { setLoading(false); }
-  };
-
-  const loadMessages = async () => {
-    setLoading(true);
-    try {
-      const r = await api.get('/admin/customers/messages');
-      setMessages(r.data.data || []);
-    } finally { setLoading(false); }
-  };
-
-  const toggleCustomer = async (id: string, isActive: boolean) => {
-    await api.patch(`/admin/customers/${id}/active`, { isActive: !isActive });
-    loadCustomers();
-  };
-
-  const terminateSession = async (sessionId: string) => {
-    await api.delete(`/admin/customers/sessions/${sessionId}`);
-    loadSessions();
-  };
+  const customers = customerData?.customers ?? [];
+  const total = customerData?.total ?? 0;
+  const loading = tab === 'list' ? customersLoading : tab === 'sessions' ? sessionsLoading : messagesLoading;
 
   const sendReply = async (msgId: string) => {
     if (!replyText.trim()) return;
-    await api.post(`/admin/customers/messages/${msgId}/reply`, { reply: replyText });
+    await sendReplyMutation.mutateAsync({ messageId: msgId, reply: replyText });
     setReplyingTo(null);
     setReplyText('');
-    loadMessages();
-  };
-
-  const openDetail = async (id: string) => {
-    const r = await api.get(`/admin/customers/${id}`);
-    setDetail(r.data.data);
   };
 
   const pages = Math.ceil(total / 20);
@@ -123,7 +52,7 @@ export default function CustomersManager() {
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-800">
         {(['list', 'sessions', 'messages'] as const).map(t => (
-          <button key={t} onClick={() => { setTab(t); setDetail(null); }}
+          <button key={t} onClick={() => { setTab(t); setDetailId(null); }}
             className={`px-5 py-3 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${tab === t ? 'border-indigo-500 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
             {t === 'list' ? `Customers (${total})` : t === 'sessions' ? `Active Sessions (${sessions.length})` : `Messages (${messages.filter(m => m.status === 'UNREAD').length} new)`}
           </button>
@@ -179,10 +108,10 @@ export default function CustomersManager() {
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <span className={`badge text-xs ${c.isActive ? 'badge-green' : 'badge-red'}`}>{c.isActive ? 'Active' : 'Inactive'}</span>
-                        <button onClick={() => openDetail(c.id)} className="text-indigo-400 hover:text-indigo-300 text-xs px-2 py-1 rounded hover:bg-indigo-500/10 transition-colors">
+                        <button onClick={() => setDetailId(c.id)} className="text-indigo-400 hover:text-indigo-300 text-xs px-2 py-1 rounded hover:bg-indigo-500/10 transition-colors">
                           View
                         </button>
-                        <button onClick={() => toggleCustomer(c.id, c.isActive)}
+                        <button onClick={() => toggleCustomer.mutate({ id: c.id, isActive: c.isActive })}
                           className={`text-xs px-2 py-1 rounded transition-colors ${c.isActive ? 'text-red-400 hover:text-red-300 hover:bg-red-500/10' : 'text-green-400 hover:text-green-300 hover:bg-green-500/10'}`}>
                           {c.isActive ? 'Deactivate' : 'Activate'}
                         </button>
@@ -208,7 +137,7 @@ export default function CustomersManager() {
       {/* ── Customer Detail ── */}
       {tab === 'list' && detail && (
         <div className="space-y-4">
-          <button onClick={() => setDetail(null)} className="text-sm text-slate-400 hover:text-white flex items-center gap-2">← Back to list</button>
+          <button onClick={() => setDetailId(null)} className="text-sm text-slate-400 hover:text-white flex items-center gap-2">← Back to list</button>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="card">
               <h3 className="text-white font-semibold mb-3">Customer Info</h3>
@@ -286,7 +215,7 @@ export default function CustomersManager() {
                       <span className="text-slate-400 text-sm">{new Date(s.lastActiveAt).toLocaleString()}</span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button onClick={() => terminateSession(s.id)} className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
+                      <button onClick={() => terminateSession.mutate(s.id)} className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded hover:bg-red-500/10 transition-colors">
                         Terminate
                       </button>
                     </td>

@@ -1,27 +1,21 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
-import { getServicePlans, createCheckout } from '../../api';
 import { ServicePlan } from '../../types';
 import { loadStripe } from '@stripe/stripe-js';
+import { useCustomerMutations, useCustomerServicePlansQuery } from '../../hooks/queries/useCustomerQueries';
 
 const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
 export default function Services() {
-  const [plans, setPlans] = useState<ServicePlan[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: plans = [], isLoading: loading } = useCustomerServicePlansQuery();
+  const { createCheckout: createCheckoutMutation } = useCustomerMutations();
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [searchParams] = useSearchParams();
 
   // ?plan=<id> is passed by the public site's "Pay Now" buttons
   const highlightedPlanId = searchParams.get('plan');
-
-  useEffect(() => {
-    getServicePlans()
-      .then(r => setPlans(r.data.data || []))
-      .finally(() => setLoading(false));
-  }, []);
 
   // Scroll the pre-selected plan into view once plans are loaded
   useEffect(() => {
@@ -35,7 +29,7 @@ export default function Services() {
     setError('');
     setPurchasing(plan.id);
     try {
-      const r = await createCheckout({ planId: plan.id, planName: plan.name, amount: plan.price });
+      const r = await createCheckoutMutation.mutateAsync({ planId: plan.id, planName: plan.name, amount: plan.price });
       const { sessionId, publishableKey } = r.data.data;
       const stripe = await loadStripe(publishableKey);
       await stripe?.redirectToCheckout({ sessionId });

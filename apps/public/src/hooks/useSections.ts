@@ -1,10 +1,5 @@
-/**
- * useSections.ts
- * Fetches page sections from the API, falls back to empty array on error.
- * Caches per page so navigating back doesn't re-fetch.
- */
-import { useState, useEffect, useRef } from 'react';
-import { getPageSections } from '../api';
+import { useMemo } from 'react';
+import { usePageSectionsQuery } from './queries/usePublicQueries';
 
 export interface SectionStyle {
   primaryColor?: string;
@@ -44,29 +39,14 @@ export interface PageSection {
   order: number;
 }
 
-// Simple in-memory cache across navigations
-const cache: Record<string, PageSection[]> = {};
-
 export function useSections(page: string) {
-  const [sections, setSections] = useState<PageSection[]>(cache[page] ?? []);
-  const [loading, setLoading]   = useState(!cache[page]);
-  const fetched = useRef(!!cache[page]);
+  const { data, isLoading } = usePageSectionsQuery(page);
+  const sections = data ?? [];
+  const sectionsByKey = useMemo(() => new Map(sections.map(section => [section.key, section])), [sections]);
 
-  useEffect(() => {
-    if (fetched.current) return;
-    fetched.current = true;
-    setLoading(true);
-    getPageSections(page)
-      .then(r => {
-        const data = r.data.data as PageSection[];
-        cache[page] = data;
-        setSections(data);
-      })
-      .catch(() => { /* use empty fallback — Home renders its own defaults */ })
-      .finally(() => setLoading(false));
-  }, [page]);
-
-  const getSection = (key: string) => sections.find(s => s.key === key);
-
-  return { sections, loading, getSection };
+  return {
+    sections,
+    loading: isLoading,
+    getSection: (key: string) => sectionsByKey.get(key),
+  };
 }

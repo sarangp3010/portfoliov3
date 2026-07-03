@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
-import { getTestimonials } from '../../api';
-import { Testimonial } from '../../types';
 import { PageLoader } from '../../components/ui/Spinner';
+import { useTestimonialsQuery } from '../../hooks/queries/usePublicQueries';
 
 const Stars = ({ n }: { n: number }) => (
   <div className="flex gap-0.5">{[1,2,3,4,5].map(i => <span key={i} className={i <= n ? 'text-amber-400' : 'text-slate-700'}>★</span>)}</div>
@@ -17,12 +15,7 @@ const Avatar = ({ name, url }: { name: string; url?: string }) => {
 };
 
 export default function Testimonials() {
-  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getTestimonials().then(r => setTestimonials(r.data.data)).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  const { data: testimonials = [], isLoading: loading } = useTestimonialsQuery();
 
   if (loading) return <PageLoader />;
 

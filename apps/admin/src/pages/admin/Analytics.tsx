@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -6,14 +6,11 @@ import {
   ResponsiveContainer, CartesianGrid, Cell, PieChart, Pie, Legend,
 } from 'recharts';
 import {
-  getAnalyticsSummary, getAnalyticsBlogStats,
-  getAnalyticsProjectStats, getAnalyticsVisitorInsights, getPaymentAnalytics,
-} from '../../api';
-import {
   AnalyticsSummary, BlogAnalytics, ProjectAnalytics, VisitorInsights, PaymentAnalytics,
 } from '../../types';
 import { Spinner } from '../../components/ui/Spinner';
 import { downloadAnalyticsReportPDF } from '../../utils/pdf';
+import { useAnalyticsPageQuery } from '../../hooks/queries/useAnalyticsPageQuery';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -463,32 +460,12 @@ function RevenueTab({ data }: { data: PaymentAnalytics }) {
 export default function Analytics() {
   const [days, setDays] = useState(30);
   const [tab, setTab] = useState<Tab>('Overview');
-  const [loading, setLoading] = useState(true);
-
-  const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
-  const [blogStats, setBlogStats] = useState<BlogAnalytics | null>(null);
-  const [projectStats, setProjectStats] = useState<ProjectAnalytics | null>(null);
-  const [visitorStats, setVisitorStats] = useState<VisitorInsights | null>(null);
-  const [paymentStats, setPaymentStats] = useState<PaymentAnalytics | null>(null);
-
-  const loadAll = useCallback(() => {
-    setLoading(true);
-    Promise.all([
-      getAnalyticsSummary(days),
-      getAnalyticsBlogStats(days),
-      getAnalyticsProjectStats(days),
-      getAnalyticsVisitorInsights(days),
-      getPaymentAnalytics(days),
-    ]).then(([s, b, p, v, pay]) => {
-      setSummary(s.data.data);
-      setBlogStats(b.data.data);
-      setProjectStats(p.data.data);
-      setVisitorStats(v.data.data);
-      setPaymentStats(pay.data.data);
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, [days]);
-
-  useEffect(() => { loadAll(); }, [loadAll]);
+  const { data, isLoading: loading } = useAnalyticsPageQuery(days);
+  const summary = data?.summary ?? null;
+  const blogStats = data?.blogStats ?? null;
+  const projectStats = data?.projectStats ?? null;
+  const visitorStats = data?.visitorStats ?? null;
+  const paymentStats = data?.paymentStats ?? null;
 
   return (
     <>

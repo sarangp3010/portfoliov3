@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
-import { getProfile, getActiveResume } from '../../api';
-import { Profile, Resume } from '../../types';
 import { PageLoader } from '../../components/ui/Spinner';
 import { trackResumePageVisit, trackResumeDownload } from '../../hooks/useTracker';
 import { downloadResumePDF, downloadPortfolioPDF } from '../../utils/pdf';
+import { useActiveResumeQuery, useProfileQuery } from '../../hooks/queries/usePublicQueries';
 
 const fmt = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
@@ -22,15 +21,11 @@ const certs = [
 ];
 
 export default function ResumePage() {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [resume, setResume] = useState<Resume | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: profile, isLoading: profileLoading } = useProfileQuery();
+  const { data: resume, isLoading: resumeLoading } = useActiveResumeQuery();
+  const loading = profileLoading || resumeLoading;
 
   useEffect(() => {
-    Promise.all([getProfile(), getActiveResume()])
-      .then(([pr, res]) => { setProfile(pr.data.data); setResume(res.data.data); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
     trackResumePageVisit();
   }, []);
 

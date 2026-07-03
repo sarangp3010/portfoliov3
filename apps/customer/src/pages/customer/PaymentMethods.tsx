@@ -1,36 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { getPaymentMethods, addPaymentMethod, deletePaymentMethod } from '../../api';
 import { PaymentMethod } from '../../types';
+import { useCustomerMutations, useCustomerPaymentMethodsQuery } from '../../hooks/queries/useCustomerQueries';
 
 const brandIcon: Record<string, string> = {
   visa: '💳', mastercard: '💳', amex: '💳', discover: '💳', default: '💳',
 };
 
 export default function PaymentMethods() {
-  const [methods, setMethods] = useState<PaymentMethod[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
+  const { data: methods = [], isLoading: loading } = useCustomerPaymentMethodsQuery();
+  const { addPaymentMethod: addPaymentMethodMutation, deletePaymentMethod: deletePaymentMethodMutation } = useCustomerMutations();
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState('');
 
-  const load = () => {
-    setLoading(true);
-    getPaymentMethods()
-      .then(r => setMethods(r.data.data || []))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { load(); }, []);
-
   const handleAdd = async () => {
-    setAdding(true);
     try {
-      const r = await addPaymentMethod();
+      const r = await addPaymentMethodMutation.mutateAsync();
       window.location.href = r.data.data.url;
     } catch {
       setError('Could not set up payment method');
-      setAdding(false);
     }
   };
 
@@ -38,14 +26,15 @@ export default function PaymentMethods() {
     if (!confirm('Remove this payment method?')) return;
     setDeleting(pmId);
     try {
-      await deletePaymentMethod(pmId);
-      load();
+      await deletePaymentMethodMutation.mutateAsync(pmId);
     } catch {
       setError('Could not remove payment method');
     } finally {
       setDeleting(null);
     }
   };
+
+  const adding = addPaymentMethodMutation.isPending;
 
   return (
     <div className="space-y-6 max-w-2xl">

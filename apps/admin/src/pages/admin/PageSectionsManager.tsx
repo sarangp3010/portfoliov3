@@ -1,22 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import {
-  listSectionPages, getAdminSections, createPageSection,
-  updatePageSection, deletePageSection, reorderPageSections, togglePageSection,
-} from '../../api/index';
 import { useToast, Toast } from '../../hooks/useToast';
+import {
+  useAdminPageSectionMutations,
+  useAdminPageSectionsQuery,
+  useAdminSectionPagesQuery,
+} from '../../hooks/queries/useAdminToolingQueries';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface SectionStyle { primaryColor?: string; bgColor?: string; textColor?: string; gradient?: string; spacing?: string; }
-interface SectionAnimation { type?: string; direction?: string; duration?: string; delay?: number; trigger?: string; }
-interface PageSection {
-  id: string; page: string; key: string; sectionType: string;
-  title?: string; subtitle?: string; body?: string;
-  ctaText?: string; ctaLink?: string; icon?: string; imageUrl?: string;
-  content: Record<string, unknown>; style: SectionStyle; animation: SectionAnimation;
-  variant: string; mobileHide: boolean; desktopHide: boolean; isVisible: boolean; order: number;
-}
+type PageSection = NonNullable<ReturnType<typeof useAdminPageSectionsQuery>['data']>[number];
+type SectionStyle = PageSection['style'];
+type SectionAnimation = PageSection['animation'];
 
 type EditorTab = 'content' | 'style' | 'animation' | 'layout';
 
@@ -81,10 +76,7 @@ function AnimPreview({ anim }: { anim: SectionAnimation }) {
 
 export default function PageSectionsManager() {
   const { toast, showToast } = useToast();
-  const [pages, setPages]           = useState<string[]>(['home', 'services']);
   const [activePage, setActivePage] = useState('home');
-  const [sections, setSections]     = useState<PageSection[]>([]);
-  const [loading, setLoading]       = useState(true);
   const [selected, setSelected]     = useState<PageSection | null>(null);
   const [isNew, setIsNew]           = useState(false);
   const [tab, setTab]               = useState<EditorTab>('content');
@@ -94,27 +86,9 @@ export default function PageSectionsManager() {
 
   // Form state mirrors the selected section
   const [form, setForm] = useState<Partial<PageSection>>({});
-
-  // ── Load pages list ──────────────────────────────────────────────────────
-  useEffect(() => {
-    listSectionPages()
-      .then(r => {
-        const p = r.data.data as string[];
-        setPages([...new Set([...p, 'home', 'services'])]);
-      })
-      .catch(() => {});
-  }, []);
-
-  // ── Load sections for active page ────────────────────────────────────────
-  const loadSections = useCallback(() => {
-    setLoading(true);
-    getAdminSections(activePage)
-      .then(r => setSections(r.data.data as PageSection[]))
-      .catch(() => showToast('Failed to load sections', 'error'))
-      .finally(() => setLoading(false));
-  }, [activePage]);
-
-  useEffect(() => { setSelected(null); setIsNew(false); loadSections(); }, [loadSections]);
+  const { data: pages = ['home', 'services'] } = useAdminSectionPagesQuery();
+  const { data: sections = [], isLoading: loading, refetch } = useAdminPageSectionsQuery(activePage);
+  const { createSection, updateSection, deleteSection, reorderSections, toggleSection } = useAdminPageSectionMutations(activePage);
 
   // ── Open section for editing ─────────────────────────────────────────────
   const openSection = (s: PageSection) => {
@@ -158,15 +132,15 @@ export default function PageSectionsManager() {
     setSaving(true);
     try {
       if (isNew) {
-        const r = await createPageSection({ ...form, page: activePage });
-        setSections(prev => [...prev, r.data.data].sort((a, b) => a.order - b.order));
+        const r = await createSection.mutateAsync({ ...form, page: activePage });
         setSelected(r.data.data);
         setIsNew(false);
+        await refetch();
         showToast('Section created');
       } else if (selected) {
-        const r = await updatePageSection(selected.id, form);
-        setSections(prev => prev.map(s => s.id === selected.id ? r.data.data : s));
+        const r = await updateSection.mutateAsync({ id: selected.id, payload: form });
         setSelected(r.data.data);
+        await refetch();
         showToast('Saved');
       }
     } catch (e: any) {
@@ -177,9 +151,9 @@ export default function PageSectionsManager() {
   // ── Toggle visibility ────────────────────────────────────────────────────
   const handleToggle = async (s: PageSection) => {
     try {
-      await togglePageSection(s.id);
-      setSections(prev => prev.map(x => x.id === s.id ? { ...x, isVisible: !x.isVisible } : x));
+      await toggleSection.mutateAsync(s.id);
       if (selected?.id === s.id) setForm(f => ({ ...f, isVisible: !f.isVisible }));
+      await refetch();
       showToast(s.isVisible ? 'Section hidden' : 'Section visible');
     } catch { showToast('Toggle failed', 'error'); }
   };
@@ -192,10 +166,10 @@ export default function PageSectionsManager() {
     const swap = dir === 'up' ? idx - 1 : idx + 1;
     [next[idx], next[swap]] = [next[swap], next[idx]];
     const reordered = next.map((s, i) => ({ ...s, order: i }));
-    setSections(reordered);
     try {
-      await reorderPageSections(reordered.map(s => ({ id: s.id, order: s.order })));
-    } catch { loadSections(); }
+      await reorderSections.mutateAsync(reordered.map(s => ({ id: s.id, order: s.order })));
+      await refetch();
+    } catch { void refetch(); }
   };
 
   // ── Delete ───────────────────────────────────────────────────────────────
@@ -203,8 +177,8 @@ export default function PageSectionsManager() {
     if (!selected) return;
     setDeleting(true);
     try {
-      await deletePageSection(selected.id);
-      setSections(prev => prev.filter(s => s.id !== selected.id));
+      await deleteSection.mutateAsync(selected.id);
+      await refetch();
       setSelected(null); setIsNew(false); setConfirmDelete(false);
       showToast('Section deleted');
     } catch (e: any) {

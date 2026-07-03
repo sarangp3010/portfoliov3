@@ -1,11 +1,9 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
-import { getAnalyticsSummary, getInquiries } from '../../api';
-import { AnalyticsSummary, Inquiry } from '../../types';
 import { Spinner } from '../../components/ui/Spinner';
 import { useAuth } from '../../context/AuthContext';
+import { useDashboardQuery } from '../../hooks/queries/useDashboardQuery';
 
 const StatCard = ({ label, value, sub, icon }: { label: string; value: string | number; sub?: string; icon: string; color?: string }) => (
   <motion.div
@@ -39,16 +37,9 @@ const statusBadge = (status: string) => {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [data, setData] = useState<AnalyticsSummary | null>(null);
-  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    Promise.all([getAnalyticsSummary(7), getInquiries({ status: 'UNREAD' })])
-      .then(([a, i]) => { setData(a.data.data); setInquiries(i.data.data.inquiries.slice(0, 5)); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  const { data, isLoading: loading } = useDashboardQuery();
+  const summary = data?.summary;
+  const inquiries = data?.inquiries ?? [];
 
   const fmt = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
@@ -69,9 +60,9 @@ export default function Dashboard() {
           <>
             {/* Stats grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <StatCard label="Visitors (7d)" value={data?.summary.totalVisitors ?? 0} sub="Unique sessions" icon="👥" />
-              <StatCard label="Page Views (7d)" value={data?.summary.totalPageViews ?? 0} sub="All pages" icon="👁" />
-              <StatCard label="Resume Downloads" value={data?.summary.resumeDownloads ?? 0} sub="Last 7 days" icon="⬇" />
+              <StatCard label="Visitors (7d)" value={summary?.summary.totalVisitors ?? 0} sub="Unique sessions" icon="👥" />
+              <StatCard label="Page Views (7d)" value={summary?.summary.totalPageViews ?? 0} sub="All pages" icon="👁" />
+              <StatCard label="Resume Downloads" value={summary?.summary.resumeDownloads ?? 0} sub="Last 7 days" icon="⬇" />
               <StatCard label="Unread Inquiries" value={inquiries.length} sub="Needs attention" icon="📬" />
             </div>
 
@@ -126,15 +117,15 @@ export default function Dashboard() {
             </div>
 
             {/* Top pages */}
-            {data?.topPages && data.topPages.length > 0 && (
+            {summary?.topPages && summary.topPages.length > 0 && (
               <div className="card mt-6 overflow-hidden">
                 <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
                   <h2 className="font-display font-bold text-white">Top Pages (7 days)</h2>
                   <Link to="/analytics" className="text-accent text-xs hover:underline">Full analytics →</Link>
                 </div>
                 <div className="p-4 space-y-3">
-                  {data.topPages.slice(0, 5).map((p, i) => {
-                    const max = data.topPages[0]?.views ?? 1;
+                  {summary.topPages.slice(0, 5).map((p, i) => {
+                    const max = summary.topPages[0]?.views ?? 1;
                     return (
                       <div key={p.page} className="flex items-center gap-4">
                         <span className="text-slate-600 font-mono text-xs w-4 shrink-0">{i + 1}</span>

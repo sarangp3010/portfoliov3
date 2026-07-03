@@ -1,16 +1,19 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { getAllResumes, uploadResume, activateResume, deleteResume } from '../../api';
 import { Resume } from '../../types';
 import { Spinner } from '../../components/ui/Spinner';
 import { useToast, Toast } from '../../hooks/useToast';
 import { Modal } from '../../components/ui/Modal';
+import { useAdminContentMutations, useAdminResumesQuery } from '../../hooks/queries/useContentManagerQueries';
 
 export default function ResumeManager() {
-  const [resumes, setResumes] = useState<Resume[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
+  const { data: resumes = [], isLoading: loading } = useAdminResumesQuery();
+  const {
+    uploadResume: uploadResumeMutation,
+    activateResume: activateResumeMutation,
+    deleteResume: deleteResumeMutation,
+  } = useAdminContentMutations();
   const [uploadErr, setUploadErr] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [version, setVersion] = useState(new Date().getFullYear().toString());
@@ -18,47 +21,36 @@ export default function ResumeManager() {
   const { toast, showToast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    getAllResumes().then(r => setResumes(r.data.data)).catch(() => {}).finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.type !== 'application/pdf') { setUploadErr('Only PDF files are allowed'); return; }
     if (file.size > 10 * 1024 * 1024) { setUploadErr('File size must be under 10MB'); return; }
 
-    setUploading(true); setUploadErr(''); setUploadSuccess('');
+    setUploadErr(''); setUploadSuccess('');
     try {
       const fd = new FormData();
       fd.append('resume', file);
       fd.append('version', version);
-      await uploadResume(fd);
+      await uploadResumeMutation.mutateAsync(fd);
       setUploadSuccess(`"${file.name}" uploaded successfully!`);
       if (fileRef.current) fileRef.current.value = '';
-      load();
     } catch (e: any) { setUploadErr(e.response?.data?.error ?? 'Upload failed'); }
-    finally { setUploading(false); }
   };
 
   const handleActivate = async (id: string) => {
-    try { await activateResume(id); load(); showToast('Resume set as active'); }
+    try { await activateResumeMutation.mutateAsync(id); showToast('Resume set as active'); }
     catch (e: any) { showToast(e.response?.data?.error ?? 'Failed to activate', 'error'); }
   };
 
-  const [deleting, setDeleting] = useState(false);
-
   const handleDelete = async () => {
     if (!deleteId) return;
-    setDeleting(true);
-    try { await deleteResume(deleteId); setDeleteId(null); load(); showToast('Resume deleted'); }
+    try { await deleteResumeMutation.mutateAsync(deleteId); setDeleteId(null); showToast('Resume deleted'); }
     catch (e: any) { showToast(e.response?.data?.error ?? 'Delete failed', 'error'); }
-    finally { setDeleting(false); }
   };
 
+  const uploading = uploadResumeMutation.isPending;
+  const deleting = deleteResumeMutation.isPending;
   const active = resumes.find(r => r.isActive);
 
   return (

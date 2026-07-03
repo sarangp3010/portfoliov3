@@ -1,12 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { getTestimonials, createTestimonial, updateTestimonial, deleteTestimonial, deleteAllTestimonials } from '../../api';
 import { Testimonial } from '../../types';
 import { Modal } from '../../components/ui/Modal';
 import { Spinner } from '../../components/ui/Spinner';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useToast, Toast } from '../../hooks/useToast';
+import { useAdminContentMutations, useAdminTestimonialsQuery } from '../../hooks/queries/useContentManagerQueries';
 
 const EMPTY: Partial<Testimonial> = {
   name: '', role: '', company: '', content: '',
@@ -28,8 +28,7 @@ const Avatar = ({ name, url }: { name: string; url?: string }) => {
 };
 
 export default function TestimonialsManager() {
-  const [items, setItems] = useState<Testimonial[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: items = [], isLoading: loading } = useAdminTestimonialsQuery();
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState<Partial<Testimonial>>(EMPTY);
   const [editing, setEditing] = useState<string | null>(null);
@@ -38,15 +37,13 @@ export default function TestimonialsManager() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
-  const [deletingAll, setDeletingAll] = useState(false);
   const { toast, showToast } = useToast();
-
-  const load = useCallback(() => {
-    setLoading(true);
-    getTestimonials().then(r => setItems(r.data.data)).catch(() => {}).finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const {
+    createTestimonial: createTestimonialMutation,
+    updateTestimonial: updateTestimonialMutation,
+    deleteTestimonial: deleteTestimonialMutation,
+    deleteAllTestimonials: deleteAllTestimonialsMutation,
+  } = useAdminContentMutations();
 
   const openNew  = () => { setForm(EMPTY); setEditing(null); setErr(''); setModal(true); };
   const openEdit = (t: Testimonial) => { setForm({ ...t }); setEditing(t.id); setErr(''); setModal(true); };
@@ -58,9 +55,9 @@ export default function TestimonialsManager() {
     setSaving(true); setErr('');
     try {
       const payload = { ...form, order: Number(form.order) || 0, rating: Number(form.rating) || 5 };
-      if (editing) await updateTestimonial(editing, payload);
-      else await createTestimonial(payload);
-      close(); load();
+      if (editing) await updateTestimonialMutation.mutateAsync({ id: editing, payload });
+      else await createTestimonialMutation.mutateAsync(payload);
+      close();
       showToast(editing ? 'Updated successfully' : 'Created successfully');
     } catch (e: any) { setErr(e.response?.data?.error ?? 'Save failed'); }
     finally { setSaving(false); }
@@ -70,9 +67,8 @@ export default function TestimonialsManager() {
     if (!deleteId) return;
     try {
       setDeleting(true);
-      await deleteTestimonial(deleteId);
+      await deleteTestimonialMutation.mutateAsync(deleteId);
       setDeleteId(null);
-      load();
       showToast('Deleted successfully');
     }
     catch (e: any) { showToast(e.response?.data?.error ?? 'Delete failed', 'error'); }
@@ -81,14 +77,11 @@ export default function TestimonialsManager() {
 
   const handleDeleteAll = async () => {
     try {
-      setDeletingAll(true);
-      const response = await deleteAllTestimonials();
+      const response = await deleteAllTestimonialsMutation.mutateAsync();
       setDeleteAllOpen(false);
-      load();
       showToast(`Removed ${response.data.count ?? 0} testimonials`);
     }
     catch (e: any) { showToast(e.response?.data?.error ?? 'Remove all failed', 'error'); }
-    finally { setDeletingAll(false); }
   };
 
   return (
@@ -229,7 +222,7 @@ export default function TestimonialsManager() {
           <p className="text-red-400/90 text-sm mb-6">This action cannot be undone.</p>
           <div className="flex justify-end gap-3">
             <button onClick={() => setDeleteAllOpen(false)} className="btn-ghost">Cancel</button>
-            <button onClick={handleDeleteAll} disabled={deletingAll} className="btn-danger disabled:opacity-60">{deletingAll ? 'Removing…' : 'Remove All'}</button>
+            <button onClick={handleDeleteAll} disabled={deleteAllTestimonialsMutation.isPending} className="btn-danger disabled:opacity-60">{deleteAllTestimonialsMutation.isPending ? 'Removing…' : 'Remove All'}</button>
           </div>
         </div>
       </Modal>

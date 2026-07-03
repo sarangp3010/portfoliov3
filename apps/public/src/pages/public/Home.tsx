@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
-import { getProfile, getProjects, trackProjectClick } from '../../api';
-import { Profile, Project } from '../../types';
+import { trackProjectClick } from '../../api';
+import { Project } from '../../types';
 import { PageLoader } from '../../components/ui/Spinner';
 import { trackEvent, trackProjectGithubClick, trackProjectDemoClick, trackProjectView } from '../../hooks/useTracker';
 import { useTilt } from '../../hooks/useTilt';
 import { useSections } from '../../hooks/useSections';
+import { useProfileQuery, useProjectsQuery } from '../../hooks/queries/usePublicQueries';
 import { DynamicSection } from '../../components/ui/DynamicSection';
 
 const fadeUp = {
@@ -104,20 +104,11 @@ function StatItem({ value, label, delay }: { value: string; label: string; delay
 }
 
 export default function Home() {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: profile, isLoading: profileLoading } = useProfileQuery();
+  const { data: projects = [], isLoading: projectsLoading } = useProjectsQuery();
   const { getSection } = useSections('home');
-
-  useEffect(() => {
-    Promise.all([getProfile(), getProjects()])
-      .then(([pr, prj]) => {
-        setProfile(pr.data.data);
-        setProjects(prj.data.data.filter((p: Project) => p.featured).slice(0, 3));
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  const loading = profileLoading || projectsLoading;
+  const featuredProjects = projects.filter((p: Project) => p.featured).slice(0, 3);
 
   if (loading) return <PageLoader />;
   if (!profile) return null;
@@ -136,9 +127,6 @@ export default function Home() {
   // Hide sections based on config
   const showProjects = projectsSection?.isVisible !== false;
   const showCta      = ctaSection?.isVisible !== false;
-
-  if (loading) return <PageLoader />;
-  if (!profile) return null;
 
   const stats = [
     { value: `${profile.yearsExp}+`, label: 'Years Experience' },
@@ -383,7 +371,7 @@ export default function Home() {
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {projects.map((project, i) => (
+                {featuredProjects.map((project, i) => (
                 <ProjectCard key={project.id} project={project} index={i} />
               ))}
             </div>

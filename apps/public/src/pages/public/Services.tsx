@@ -1,11 +1,12 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
-import { getServices, getServicePlans, submitInquiry, createCheckout } from '../../api';
+import { submitInquiry, createCheckout } from '../../api';
 import { Service, ServicePlan } from '../../types';
 import { PageLoader } from '../../components/ui/Spinner';
 import { trackServicePageVisit, trackServiceInquiryOpen, trackInquirySubmit } from '../../hooks/useTracker';
 import { CUSTOMER_URL } from '../../config/urls';
+import { useServicePlansQuery, useServicesQuery } from '../../hooks/queries/usePublicQueries';
 
 const PROCESS_STEPS = [
   { icon: '🤝', n: '01', title: 'Discovery Call',  desc: 'We discuss your goals, timeline, and requirements. No commitment, 30 minutes.' },
@@ -108,9 +109,9 @@ function PlanCard({ plan, index, onGetQuote }: {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function Services() {
-  const [services, setServices]     = useState<Service[]>([]);
-  const [plans, setPlans]           = useState<ServicePlan[]>([]);
-  const [loading, setLoading]       = useState(true);
+  const { data: services = [], isLoading: servicesLoading } = useServicesQuery();
+  const { data: plans = [], isLoading: plansLoading } = useServicePlansQuery();
+  const loading = servicesLoading || plansLoading;
   const [openFaq, setOpenFaq]       = useState<number | null>(null);
 
   const [form, setForm]       = useState({ name: '', email: '', subject: '', message: '', serviceType: '', budget: '' });
@@ -121,10 +122,6 @@ export default function Services() {
   const [error, setError]     = useState('');
 
   useEffect(() => {
-    Promise.all([
-      getServices().then(r => setServices(r.data.data)),
-      getServicePlans().then(r => setPlans(r.data.data)),
-    ]).catch(() => {}).finally(() => setLoading(false));
     trackServicePageVisit();
   }, []);
 

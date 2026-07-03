@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
-import { getDiagnostics, getEventLog } from '../../api/index';
-import type { DiagnosticsData } from '../../types/index';
+import { useState } from 'react';
 import { Spinner } from '../../components/ui/Spinner';
+import { useAdminDiagnosticsQuery, useAdminEventLogQuery } from '../../hooks/queries/useAdminToolingQueries';
 
 const STATUS_COLOR: Record<string, string> = {
   '2': 'text-emerald-400', '3': 'text-blue-400', '4': 'text-yellow-400', '5': 'text-red-400',
@@ -24,22 +23,12 @@ const EVENT_ICONS: Record<string, string> = {
 
 export default function DevDiagnostics() {
   const [hours, setHours] = useState(24);
-  const [diag, setDiag] = useState<DiagnosticsData | null>(null);
-  const [eventLog, setEventLog] = useState<any[]>([]);
   const [tab, setTab] = useState<'overview' | 'errors' | 'slow' | 'events'>('overview');
-  const [loading, setLoading] = useState(true);
+  const { data: diag, isLoading: diagnosticsLoading, refetch: refetchDiagnostics } = useAdminDiagnosticsQuery(hours);
+  const { data: eventLog = [], isLoading: eventLogLoading, refetch: refetchEventLog } = useAdminEventLogQuery(100);
+  const loading = diagnosticsLoading || eventLogLoading;
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const [diagR, evR] = await Promise.all([getDiagnostics(hours), getEventLog(100)]);
-      setDiag(diagR.data.data ?? null);
-      setEventLog(evR.data.data ?? []);
-    } catch { /* silent */ }
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, [hours]);
+  const load = () => Promise.all([refetchDiagnostics(), refetchEventLog()]);
 
   if (loading) return <div className="flex justify-center py-20"><Spinner /></div>;
 

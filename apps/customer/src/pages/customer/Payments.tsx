@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { getCustomerPayments, getPaymentReceipt } from '../../api';
 import { Payment } from '../../types';
+import { useCustomerMutations, useCustomerPaymentsQuery } from '../../hooks/queries/useCustomerQueries';
 
 const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 const statusColor: Record<string, string> = {
@@ -10,28 +10,19 @@ const statusColor: Record<string, string> = {
 };
 
 export default function Payments() {
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
   const [downloading, setDownloading] = useState<string | null>(null);
-
-  useEffect(() => {
-    setLoading(true);
-    getCustomerPayments(page)
-      .then(r => {
-        setPayments(r.data.data.payments || []);
-        setTotal(r.data.data.total || 0);
-      })
-      .finally(() => setLoading(false));
-  }, [page]);
+  const { data, isLoading: loading } = useCustomerPaymentsQuery(page);
+  const { getPaymentReceipt: getPaymentReceiptMutation } = useCustomerMutations();
+  const payments: Payment[] = data?.payments ?? [];
+  const total = data?.total ?? 0;
 
   const handleReceipt = async (payment: Payment) => {
     if (payment.status !== 'COMPLETED') return;
     setDownloading(payment.id);
     try {
-      const r = await getPaymentReceipt(payment.id);
+      const r = await getPaymentReceiptMutation.mutateAsync(payment.id);
       const blob = new Blob([JSON.stringify(r.data.data, null, 2)], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

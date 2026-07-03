@@ -1,12 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { getPosts, createPost, updatePost, deletePost, deleteAllPosts } from '../../api';
 import { BlogPost } from '../../types';
 import { Modal } from '../../components/ui/Modal';
 import { Spinner } from '../../components/ui/Spinner';
 import { useToast, Toast } from '../../hooks/useToast';
 import { VersionHistory } from '../../components/admin/VersionHistory';
+import { useAdminBlogPostsQuery, useAdminContentMutations } from '../../hooks/queries/useContentManagerQueries';
 
 const EMPTY: Partial<BlogPost> = {
   title: '', slug: '', excerpt: '', content: '', tags: [], coverImage: '',
@@ -17,8 +17,7 @@ const generateSlug = (title: string) =>
   title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
 export default function BlogManager() {
-  const [posts, setPosts] = useState<BlogPost[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: posts = [], isLoading: loading, refetch } = useAdminBlogPostsQuery();
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState<Partial<BlogPost>>(EMPTY);
   const [editing, setEditing] = useState<string | null>(null);
@@ -27,16 +26,14 @@ export default function BlogManager() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
-  const [deletingAll, setDeletingAll] = useState(false);
   const { toast, showToast } = useToast();
   const [tab, setTab] = useState<'all' | 'published' | 'draft'>('all');
-
-  const load = useCallback(() => {
-    setLoading(true);
-    getPosts().then(r => setPosts(r.data.data.posts ?? r.data.data)).catch(() => {}).finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const {
+    createPost: createPostMutation,
+    updatePost: updatePostMutation,
+    deletePost: deletePostMutation,
+    deleteAllPosts: deleteAllPostsMutation,
+  } = useAdminContentMutations();
 
   const openNew = () => { setForm(EMPTY); setEditing(null); setErr(''); setModal(true); };
   const openEdit = (p: BlogPost) => { setForm({ ...p, tags: p.tags ?? [] }); setEditing(p.id); setErr(''); setModal(true); };
@@ -59,9 +56,9 @@ export default function BlogManager() {
           ? (form.tags as string).split(',').map((t: string) => t.trim()).filter(Boolean)
           : form.tags,
       };
-      if (editing) await updatePost(editing, payload);
-      else await createPost(payload);
-      close(); load();
+      if (editing) await updatePostMutation.mutateAsync({ id: editing, payload });
+      else await createPostMutation.mutateAsync(payload);
+      close();
       showToast(editing ? 'Updated successfully' : 'Created successfully');
     } catch (e: any) { setErr(e.response?.data?.error ?? 'Save failed'); }
     finally { setSaving(false); }
@@ -71,9 +68,8 @@ export default function BlogManager() {
     if (!deleteId) return;
     try {
       setDeleting(true);
-      await deletePost(deleteId);
+      await deletePostMutation.mutateAsync(deleteId);
       setDeleteId(null);
-      load();
       showToast('Deleted successfully');
     }
     catch (e: any) { showToast(e.response?.data?.error ?? 'Delete failed', 'error'); }
@@ -82,14 +78,11 @@ export default function BlogManager() {
 
   const handleDeleteAll = async () => {
     try {
-      setDeletingAll(true);
-      const response = await deleteAllPosts();
+      const response = await deleteAllPostsMutation.mutateAsync();
       setDeleteAllOpen(false);
-      load();
       showToast(`Removed ${response.data.count ?? 0} posts`);
     }
     catch (e: any) { showToast(e.response?.data?.error ?? 'Remove all failed', 'error'); }
-    finally { setDeletingAll(false); }
   };
 
   const filtered = posts.filter(p =>
@@ -161,7 +154,7 @@ export default function BlogManager() {
                         <button onClick={() => setDeleteId(p.id)} className="btn-danger px-3 py-1.5 text-xs">Delete</button>
                       </div>
                       <div className="mt-1.5 flex justify-end">
-                        <VersionHistory contentType="blog" contentId={p.id} onRestored={load} />
+                        <VersionHistory contentType="blog" contentId={p.id} onRestored={refetch} />
                       </div>
                     </td>
                   </motion.tr>
@@ -252,7 +245,7 @@ export default function BlogManager() {
           <p className="text-red-400/90 text-sm mb-6">This action cannot be undone.</p>
           <div className="flex justify-end gap-3">
             <button onClick={() => setDeleteAllOpen(false)} className="btn-ghost">Cancel</button>
-            <button onClick={handleDeleteAll} disabled={deletingAll} className="btn-danger disabled:opacity-60">{deletingAll ? 'Removing…' : 'Remove All'}</button>
+            <button onClick={handleDeleteAll} disabled={deleteAllPostsMutation.isPending} className="btn-danger disabled:opacity-60">{deleteAllPostsMutation.isPending ? 'Removing…' : 'Remove All'}</button>
           </div>
         </div>
       </Modal>

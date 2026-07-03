@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getSmartInsights, getNavFlows, getActiveVisitors, getAnalyticsSessions } from '../../api/index';
-import type { SmartInsight, NavFlow, ActiveVisitorSummary } from '../../types/index';
+import { useEffect, useState } from 'react';
 import { Spinner } from '../../components/ui/Spinner';
-
-const REFRESH_MS = 30_000;
+import {
+  useAdminActiveVisitorsQuery,
+  useAdminNavFlowsQuery,
+  useAdminSmartInsightsQuery,
+} from '../../hooks/queries/useAdminToolingQueries';
 
 const insightColors: Record<string, string> = {
   positive: 'border-l-emerald-500 bg-emerald-500/5',
@@ -21,32 +22,15 @@ const StatCard = ({ label, value, sub }: { label: string; value: string | number
 
 export default function InsightsPanel() {
   const [days, setDays] = useState(30);
-  const [insights, setInsights] = useState<SmartInsight[]>([]);
-  const [flows, setFlows] = useState<NavFlow | null>(null);
-  const [active, setActive] = useState<ActiveVisitorSummary | null>(null);
-  const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const { data: insights = [], isLoading: insightsLoading } = useAdminSmartInsightsQuery(days);
+  const { data: flows, isLoading: flowsLoading } = useAdminNavFlowsQuery(days);
+  const { data: active, isLoading: activeLoading, dataUpdatedAt } = useAdminActiveVisitorsQuery();
+  const loading = insightsLoading || flowsLoading || activeLoading;
 
-  const load = useCallback(async () => {
-    try {
-      const [insR, flowR, actR] = await Promise.all([
-        getSmartInsights(days),
-        getNavFlows(days),
-        getActiveVisitors(),
-      ]);
-      setInsights(insR.data.data?.insights ?? []);
-      setFlows(flowR.data.data ?? null);
-      setActive(actR.data.data ?? null);
-      setLastRefresh(new Date());
-    } catch { /* silent */ }
-    setLoading(false);
-  }, [days]);
-
-  useEffect(() => { setLoading(true); load(); }, [load]);
   useEffect(() => {
-    const t = setInterval(() => { getActiveVisitors().then(r => setActive(r.data.data ?? null)).catch(() => {}); }, REFRESH_MS);
-    return () => clearInterval(t);
-  }, []);
+    if (dataUpdatedAt) setLastRefresh(new Date(dataUpdatedAt));
+  }, [dataUpdatedAt]);
 
   if (loading) return <div className="flex justify-center py-20"><Spinner /></div>;
 

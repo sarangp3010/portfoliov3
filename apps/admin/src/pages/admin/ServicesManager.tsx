@@ -1,11 +1,11 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { getServices, createService, updateService, deleteService, deleteAllServices } from '../../api';
 import { Service } from '../../types';
 import { Modal } from '../../components/ui/Modal';
 import { Spinner } from '../../components/ui/Spinner';
 import { useToast, Toast } from '../../hooks/useToast';
+import { useAdminContentMutations, useAdminServicesQuery } from '../../hooks/queries/useContentManagerQueries';
 
 const EMPTY: Partial<Service> = {
   title: '', description: '', features: [], price: '', priceNote: '',
@@ -13,8 +13,7 @@ const EMPTY: Partial<Service> = {
 };
 
 export default function ServicesManager() {
-  const [items, setItems] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: items = [], isLoading: loading } = useAdminServicesQuery();
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState<Partial<Service>>(EMPTY);
   const [editing, setEditing] = useState<string | null>(null);
@@ -23,15 +22,13 @@ export default function ServicesManager() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
-  const [deletingAll, setDeletingAll] = useState(false);
   const { toast, showToast } = useToast();
-
-  const load = useCallback(() => {
-    setLoading(true);
-    getServices().then(r => setItems(r.data.data)).catch(() => {}).finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const {
+    createService: createServiceMutation,
+    updateService: updateServiceMutation,
+    deleteService: deleteServiceMutation,
+    deleteAllServices: deleteAllServicesMutation,
+  } = useAdminContentMutations();
 
   const openNew  = () => { setForm(EMPTY); setEditing(null); setErr(''); setModal(true); };
   const openEdit = (s: Service) => { setForm({ ...s }); setEditing(s.id); setErr(''); setModal(true); };
@@ -49,9 +46,9 @@ export default function ServicesManager() {
           : form.features,
         order: Number(form.order) || 0,
       };
-      if (editing) await updateService(editing, payload);
-      else await createService(payload);
-      close(); load();
+      if (editing) await updateServiceMutation.mutateAsync({ id: editing, payload });
+      else await createServiceMutation.mutateAsync(payload);
+      close();
       showToast(editing ? 'Updated successfully' : 'Created successfully');
     } catch (e: any) { setErr(e.response?.data?.error ?? 'Save failed'); }
     finally { setSaving(false); }
@@ -61,9 +58,8 @@ export default function ServicesManager() {
     if (!deleteId) return;
     try {
       setDeleting(true);
-      await deleteService(deleteId);
+      await deleteServiceMutation.mutateAsync(deleteId);
       setDeleteId(null);
-      load();
       showToast('Deleted successfully');
     }
     catch (e: any) { showToast(e.response?.data?.error ?? 'Delete failed', 'error'); }
@@ -72,14 +68,11 @@ export default function ServicesManager() {
 
   const handleDeleteAll = async () => {
     try {
-      setDeletingAll(true);
-      const response = await deleteAllServices();
+      const response = await deleteAllServicesMutation.mutateAsync();
       setDeleteAllOpen(false);
-      load();
       showToast(`Removed ${response.data.count ?? 0} services`);
     }
     catch (e: any) { showToast(e.response?.data?.error ?? 'Remove all failed', 'error'); }
-    finally { setDeletingAll(false); }
   };
 
   return (
@@ -223,7 +216,7 @@ export default function ServicesManager() {
           <p className="text-red-400/90 text-sm mb-6">This action cannot be undone.</p>
           <div className="flex justify-end gap-3">
             <button onClick={() => setDeleteAllOpen(false)} className="btn-ghost">Cancel</button>
-            <button onClick={handleDeleteAll} disabled={deletingAll} className="btn-danger disabled:opacity-60">{deletingAll ? 'Removing…' : 'Remove All'}</button>
+            <button onClick={handleDeleteAll} disabled={deleteAllServicesMutation.isPending} className="btn-danger disabled:opacity-60">{deleteAllServicesMutation.isPending ? 'Removing…' : 'Remove All'}</button>
           </div>
         </div>
       </Modal>
