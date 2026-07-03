@@ -132,6 +132,31 @@ docker run -d -p 6379:6379 redis:7-alpine
 
 ---
 
+## Task: Task Management Docs System
+
+**Status:** Completed
+**Commits:** `17f4ffa`, `2cbbd07`, `e630d96`
+**Date:** 2026-07-02
+
+### What was done
+
+Created the full task lifecycle documentation system under `docs/tasks/`.
+
+| File | Purpose |
+|---|---|
+| `completed.md` | Log of every finished task with commit hash, files changed, and architecture notes |
+| `in-progress.md` | Active task tracker — pre-loaded with TanStack Query sub-task checklist |
+| `planned.md` | 16 non-AI features with full steps, effort ratings, rationale, and suggested build order |
+
+The `planned.md` features cover: TanStack Query, global admin search, admin notes, CSV export, scheduled blog posts, CRM pipeline, customer project workspace, support tickets, payment refunds, public filtering/search, sitemap/SEO, coupon codes, webhook subscriptions, milestone billing, audit log, and multi-admin roles.
+
+### Files created
+- `docs/tasks/completed.md`
+- `docs/tasks/in-progress.md`
+- `docs/tasks/planned.md`
+
+---
+
 ## Process
 
 When starting a task from `upcoming.md`:
