@@ -4,6 +4,43 @@ This document logs all completed tasks, the changes made, and the commit(s) asso
 
 ---
 
+## Task: CRM-style inquiry pipeline
+
+**Status:** Completed
+**Commit:** `3c04964`
+**Date:** 2026-07-02
+
+### What was done
+
+- Added `InquiryStage` enum (`NEW | QUALIFIED | PROPOSAL_SENT | WON | LOST`) to Prisma schema
+- Added `stage` and `stageUpdatedAt` fields to `Inquiry` model
+- Added `InquiryStageHistory` model — tracks every stage transition with optional note
+- Migration: `20260703025221_add_inquiry_pipeline`
+- New endpoint: `PATCH /admin/inquiries/:id/stage` — updates stage, records history entry
+- Updated `getInquiries` to accept `stage` query param for filtering; updated cache key
+- New mutation hook: `useUpdateInquiryStageMutation` with optimistic cache update
+- Updated `Inquiry` type + added `InquiryStage` type export in `types/index.ts`
+- Updated `getInquiries` API call and query key factory to include stage
+- Rewrote `InquiriesManager.tsx`:
+  - Pipeline summary row — 5 clickable cards (one per stage) with per-page count, doubles as stage filter
+  - Stage column in the table with colored dropdown selector
+  - Stage selector in the detail modal alongside status
+  - `stageUpdatedAt` shown in modal when set
+
+### Files changed
+- `server/prisma/schema.prisma`
+- `server/prisma/migrations/20260703025221_add_inquiry_pipeline/migration.sql`
+- `server/src/controllers/content.controller.ts`
+- `server/src/routes/index.ts`
+- `apps/admin/src/types/index.ts`
+- `apps/admin/src/api/index.ts`
+- `apps/admin/src/lib/queryKeys.ts`
+- `apps/admin/src/hooks/queries/useInquiriesQuery.ts`
+- `apps/admin/src/hooks/mutations/useUpdateInquiryStageMutation.ts`
+- `apps/admin/src/pages/admin/InquiriesManager.tsx`
+
+---
+
 ## Task: TanStack Query across all three apps
 
 **Status:** Completed
