@@ -24,8 +24,7 @@ export const createService = async (req: Request, res: Response, next: NextFunct
     const data = req.body;
     if (data.features && typeof data.features === 'string') data.features = data.features.split('\n').map((f: string) => f.trim()).filter(Boolean);
     const s = await prisma.service.create({ data });
-    await cacheDeletePattern('services:');
-    await cacheDeletePattern('payments:plans');
+    await Promise.all([cacheDeletePattern('services:'), cacheDeletePattern('payments:plans'), cacheDeletePattern('pdf:')]);
     res.status(201).json({ success: true, data: s });
   } catch (err) { next(err); }
 };
@@ -35,8 +34,7 @@ export const updateService = async (req: Request, res: Response, next: NextFunct
     const data = req.body;
     if (data.features && typeof data.features === 'string') data.features = data.features.split('\n').map((f: string) => f.trim()).filter(Boolean);
     const s = await prisma.service.update({ where: { id: String(req.params.id) }, data });
-    await cacheDeletePattern('services:');
-    await cacheDeletePattern('payments:plans');
+    await Promise.all([cacheDeletePattern('services:'), cacheDeletePattern('payments:plans'), cacheDeletePattern('pdf:')]);
     res.json({ success: true, data: s });
   } catch (err) { next(err); }
 };
@@ -44,8 +42,7 @@ export const updateService = async (req: Request, res: Response, next: NextFunct
 export const deleteService = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     await prisma.service.delete({ where: { id: String(req.params.id) } });
-    await cacheDeletePattern('services:');
-    await cacheDeletePattern('payments:plans');
+    await Promise.all([cacheDeletePattern('services:'), cacheDeletePattern('payments:plans'), cacheDeletePattern('pdf:')]);
     res.json({ success: true, message: 'Deleted' });
   } catch (err) { next(err); }
 };
@@ -53,8 +50,7 @@ export const deleteService = async (req: Request, res: Response, next: NextFunct
 export const deleteAllServices = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const result = await prisma.service.deleteMany();
-    await cacheDeletePattern('services:');
-    await cacheDeletePattern('payments:plans');
+    await Promise.all([cacheDeletePattern('services:'), cacheDeletePattern('payments:plans'), cacheDeletePattern('pdf:')]);
     res.json({ success: true, count: result.count, message: 'Deleted' });
   } catch (err) { next(err); }
 };

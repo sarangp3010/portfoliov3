@@ -37,7 +37,10 @@ export const getPosts = async (req: Request, res: Response, next: NextFunction):
 export const getPost = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const isAdmin = (req as any).user?.role === 'ADMIN';
-    const post = await prisma.blogPost.findFirst({ where: { slug: String(req.params.slug), ...(isAdmin ? {} : { published: true }) } });
+    const slug = String(req.params.slug);
+    const post = isAdmin
+      ? await prisma.blogPost.findFirst({ where: { slug } })
+      : await cached(`blog:post:${slug}`, () => prisma.blogPost.findFirst({ where: { slug, published: true } }), 5 * 60_000);
     if (!post) { res.status(404).json({ success: false, error: 'Post not found' }); return; }
     prisma.blogPost.update({ where: { id: post.id }, data: { views: { increment: 1 } } }).catch(() => {});
     res.json({ success: true, data: post });
@@ -61,8 +64,7 @@ export const createPost = async (req: Request, res: Response, next: NextFunction
     if (data.tags && typeof data.tags === 'string') data.tags = data.tags.split(',').map((t: string) => t.trim()).filter(Boolean);
     if (data.published && !data.publishedAt) data.publishedAt = new Date();
     const post = await prisma.blogPost.create({ data });
-    await cacheDeletePattern('posts:');
-    await cacheDeletePattern('blog:');
+    await Promise.all([cacheDeletePattern('posts:'), cacheDeletePattern('blog:'), cacheDeletePattern('pdf:')]);
     res.status(201).json({ success: true, data: post });
   } catch (err) { next(err); }
 };
@@ -78,8 +80,7 @@ export const updatePost = async (req: Request, res: Response, next: NextFunction
     if (data.tags && typeof data.tags === 'string') data.tags = data.tags.split(',').map((t: string) => t.trim()).filter(Boolean);
     if (data.published && !data.publishedAt) data.publishedAt = new Date();
     const post = await prisma.blogPost.update({ where: { id: String(req.params.id) }, data });
-    await cacheDeletePattern('posts:');
-    await cacheDeletePattern('blog:');
+    await Promise.all([cacheDeletePattern('posts:'), cacheDeletePattern('blog:'), cacheDeletePattern('pdf:')]);
     res.json({ success: true, data: post });
   } catch (err) { next(err); }
 };
@@ -87,8 +88,7 @@ export const updatePost = async (req: Request, res: Response, next: NextFunction
 export const deletePost = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     await prisma.blogPost.delete({ where: { id: String(req.params.id) } });
-    await cacheDeletePattern('posts:');
-    await cacheDeletePattern('blog:');
+    await Promise.all([cacheDeletePattern('posts:'), cacheDeletePattern('blog:'), cacheDeletePattern('pdf:')]);
     res.json({ success: true });
   } catch (err) { next(err); }
 };
@@ -96,8 +96,7 @@ export const deletePost = async (req: Request, res: Response, next: NextFunction
 export const deleteAllPosts = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const result = await prisma.blogPost.deleteMany();
-    await cacheDeletePattern('posts:');
-    await cacheDeletePattern('blog:');
+    await Promise.all([cacheDeletePattern('posts:'), cacheDeletePattern('blog:'), cacheDeletePattern('pdf:')]);
     res.json({ success: true, count: result.count });
   } catch (err) { next(err); }
 };

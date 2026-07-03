@@ -37,6 +37,9 @@ export const config = {
     authToken: process.env.TWILIO_AUTH_TOKEN ?? '',
     phoneNumber: process.env.TWILIO_PHONE_NUMBER ?? '',
   },
+  redis: {
+    url: process.env.REDIS_URL ?? '',
+  },
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE ?? '10485760', 10),
   openai: {
     apiKey: process.env.OPENAI_API_KEY ?? '',

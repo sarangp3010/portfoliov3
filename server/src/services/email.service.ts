@@ -10,14 +10,33 @@ const createTransport = () => nodemailer.createTransport({
   auth: { user: config.smtp.user, pass: config.smtp.pass },
 });
 
+// ─── Queue hook ───────────────────────────────────────────────────────────────
+// Set by server.ts after BullMQ is initialised. When set, sendEmail enqueues
+// instead of calling SMTP directly; the email worker calls sendEmailDirect.
+
+type RawEmail = { to: string; subject: string; html: string };
+let _enqueue: ((payload: RawEmail) => Promise<void>) | null = null;
+export const useEmailQueue = (fn: (payload: RawEmail) => Promise<void>): void => { _enqueue = fn; };
+
 // ─── Generic low-level sender ─────────────────────────────────────────────────
 
 export const emailService = {
-  async sendEmail({ to, subject, html }: { to: string; subject: string; html: string }): Promise<void> {
+  /** Sends via queue if available, otherwise directly over SMTP. */
+  async sendEmail({ to, subject, html }: RawEmail): Promise<void> {
     if (!config.smtp.user || !to) {
       logger.warn(`Email not sent (SMTP not configured or missing recipient): ${subject}`);
       return;
     }
+    if (_enqueue) {
+      await _enqueue({ to, subject, html });
+      return;
+    }
+    await this.sendEmailDirect({ to, subject, html });
+  },
+
+  /** Always sends directly over SMTP — used by the email worker. */
+  async sendEmailDirect({ to, subject, html }: RawEmail): Promise<void> {
+    if (!config.smtp.user || !to) return;
     try {
       await createTransport().sendMail({ from: config.smtp.from, to, subject, html });
       logger.info(`Email sent to ${to}: ${subject}`);

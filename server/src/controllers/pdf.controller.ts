@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/prisma.js';
+import { cached } from '../services/cache.service.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -19,24 +20,30 @@ const hexToRgb = (hex: string): [number, number, number] => {
 
 export const getResumeData = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const [profile, projects, skills] = await Promise.all([
-      prisma.profile.findFirst(),
-      prisma.project.findMany({ where: { featured: true }, orderBy: { order: 'asc' }, take: 6 }),
-      prisma.profile.findFirst({ select: { skills: true, techStack: true, yearsExp: true, projectCount: true, clientCount: true } }),
-    ]);
-    res.json({ success: true, data: { profile, projects, skills } });
+    const data = await cached('pdf:resume-data', async () => {
+      const [profile, projects, skills] = await Promise.all([
+        prisma.profile.findFirst(),
+        prisma.project.findMany({ where: { featured: true }, orderBy: { order: 'asc' }, take: 6 }),
+        prisma.profile.findFirst({ select: { skills: true, techStack: true, yearsExp: true, projectCount: true, clientCount: true } }),
+      ]);
+      return { profile, projects, skills };
+    }, 10 * 60_000);
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 };
 
 export const getPortfolioData = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const [profile, projects, posts, services] = await Promise.all([
-      prisma.profile.findFirst(),
-      prisma.project.findMany({ orderBy: { order: 'asc' } }),
-      prisma.blogPost.findMany({ where: { published: true }, orderBy: { views: 'desc' }, take: 5, select: { title: true, excerpt: true, tags: true, views: true, publishedAt: true } }),
-      prisma.service.findMany({ orderBy: { order: 'asc' } }),
-    ]);
-    res.json({ success: true, data: { profile, projects, posts, services } });
+    const data = await cached('pdf:portfolio-data', async () => {
+      const [profile, projects, posts, services] = await Promise.all([
+        prisma.profile.findFirst(),
+        prisma.project.findMany({ orderBy: { order: 'asc' } }),
+        prisma.blogPost.findMany({ where: { published: true }, orderBy: { views: 'desc' }, take: 5, select: { title: true, excerpt: true, tags: true, views: true, publishedAt: true } }),
+        prisma.service.findMany({ orderBy: { order: 'asc' } }),
+      ]);
+      return { profile, projects, posts, services };
+    }, 10 * 60_000);
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 };
 
