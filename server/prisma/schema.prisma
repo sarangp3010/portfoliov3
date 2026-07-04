@@ -8,14 +8,33 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String         @id @default(cuid())
+  email     String         @unique
   password  String
   name      String
-  role      Role     @default(VIEWER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  role      Role           @default(VIEWER)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  sessions  AdminSession[]
   @@index([email])
+}
+
+model AdminSession {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jti          String   @unique
+  ipAddress    String?
+  userAgent    String?
+  loginAt      DateTime @default(now())
+  lastActiveAt DateTime @default(now())
+  expiresAt    DateTime
+  isActive     Boolean  @default(true)
+
+  @@index([userId])
+  @@index([jti])
+  @@index([isActive])
+  @@index([expiresAt])
 }
 
 model Profile {

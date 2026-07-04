@@ -2,6 +2,7 @@ import api from './axios';
 
 // Auth
 export const login = (email: string, password: string) => api.post('/auth/login', { email, password });
+export const logoutAdmin = () => api.post('/auth/logout');
 export const getMe = () => api.get('/auth/me');
 export const changePassword = (data: { currentPassword: string; newPassword: string }) => api.post('/auth/change-password', data);
 

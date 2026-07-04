@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { AuthUser } from '../types';
-import { getMe } from '../api';
+import { getMe, logoutAdmin } from '../api';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -27,6 +27,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signOut = () => {
+    logoutAdmin().catch(() => {}); // fire-and-forget; local cleanup always runs
     localStorage.removeItem('admin_token');
     localStorage.removeItem('admin_user');
     setUser(null);

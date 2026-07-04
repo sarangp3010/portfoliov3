@@ -4,10 +4,41 @@ This document logs all completed tasks, the changes made, and the commit(s) asso
 
 ---
 
-## Task: Frontend test coverage — public + customer apps (#2)
+## Task: Auth hardening — AdminSession revocation (#3 / impl #1)
 
 **Status:** Completed
 **Commit:** TBD
+**Date:** 2026-07-04
+
+### What was done
+
+Wrote a full auth hardening review (`docs/auth-hardening.md`) covering all current vulnerabilities with severity ratings and a recommended fix order. Implemented recommendation #1: admin session tracking and revocation via a new `AdminSession` table.
+
+Admin JWTs now carry a `jti` (UUID) claim. On login, a row is created in `AdminSession`. The `authenticate()` middleware verifies the session is still active (with a 5-minute cache to avoid a DB hit per request). On logout, the session is marked inactive and the cache entry is cleared — the token is dead immediately, not after 7 days.
+
+### Files created
+- `docs/auth-hardening.md` — findings + recommendations writeup
+- `server/prisma/migrations/20260704014616_add_admin_sessions/migration.sql`
+
+### Files modified
+- `server/prisma/schema.prisma` — added `AdminSession` model, `User.sessions` relation
+- `server/src/controllers/auth.controller.ts` — `jti` on login, new `logout` handler
+- `server/src/middleware/auth.ts` — session revocation check in `authenticate()`, cached 5 min
+- `server/src/routes/index.ts` — `POST /auth/logout`
+- `apps/admin/src/api/index.ts` — `logoutAdmin()`
+- `apps/admin/src/context/AuthContext.tsx` — calls `logoutAdmin()` fire-and-forget on sign out
+
+### Notes
+- Old tokens without a `jti` (issued before this change) continue to work — backwards compatible
+- Cache key: `admin:session:<jti>`, TTL 5 min; cleared immediately on logout
+- `eitherAuth` (notifications) not updated — lower risk, covered in auth-hardening.md for future
+
+---
+
+## Task: Frontend test coverage — public + customer apps (#2)
+
+**Status:** Completed
+**Commit:** aa1ec74
 **Date:** 2026-07-03
 
 ### What was done

@@ -4,7 +4,7 @@ import multer from 'multer';
 import path from 'path';
 import { config } from '../config/index.js';
 import { authenticate, adminOnly, customerAuth, optionalAuth, eitherAuth } from '../middleware/auth.js';
-import { login, me, changePassword } from '../controllers/auth.controller.js';
+import { login, logout, me, changePassword } from '../controllers/auth.controller.js';
 import { getProfile, updateProfile } from '../controllers/profile.controller.js';
 import { getProjects, getProject, createProject, updateProject, deleteProject, deleteAllProjects, trackClick } from '../controllers/project.controller.js';
 import { getPosts, getPost, getTags, createPost, updatePost, deletePost, deleteAllPosts } from '../controllers/blog.controller.js';
@@ -64,6 +64,7 @@ export const createRouter = () => {
 
   // ─── Auth ─────────────────────────────────────────────────────────────────
   r.post('/auth/login', login);
+  r.post('/auth/logout', authenticate, logout);
   r.get('/auth/me', authenticate, me);
   r.post('/auth/change-password', authenticate, changePassword);
 
