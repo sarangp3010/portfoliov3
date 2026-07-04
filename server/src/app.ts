@@ -202,24 +202,28 @@ app.use(helmet({
 
 app.use(cors({
   origin: (origin, callback) => {
+    // No origin = server-to-server or Postman — always allow
+    if (!origin) return callback(null, true);
+
+    // Dev: allow any *.localhost origin without restriction
+    if (config.nodeEnv !== 'production') {
+      if (/\.localhost(:\d+)?$/.test(origin) || origin === 'http://localhost:5173') {
+        return callback(null, true);
+      }
+    }
+
+    // Production (and dev fallback): explicit allowlist only
     const allowed = [
       config.clientUrl,
+      config.publicUrl,
+      config.adminUrl,
       config.customerUrl,
-      // Direct Vite ports (fallback)
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:3002',
-      'http://localhost:5173',
-      // Subdomain dev proxy
-      'http://public.localhost:5173',
-      'http://admin.localhost:5173',
-      'http://customer.localhost:5173',
     ].filter(Boolean);
-    // Allow: no origin (server-to-server / Postman), matching list, or any *.localhost
-    if (!origin || allowed.includes(origin) || /\.localhost(:\d+)?$/.test(origin)) {
+
+    if (allowed.includes(origin)) {
       callback(null, true);
     } else {
-      callback(null, true); // dev: allow all; tighten for production via CLIENT_URL
+      callback(new Error(`CORS: origin ${origin} not allowed`));
     }
   },
   credentials: true,
