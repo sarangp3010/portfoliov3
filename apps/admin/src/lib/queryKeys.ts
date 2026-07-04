@@ -31,4 +31,5 @@ export const adminQueryKeys = {
   smartInsights: (days: number) => ['admin', 'smart-insights', days] as const,
   navFlows: (days: number) => ['admin', 'nav-flows', days] as const,
   activeVisitors: () => ['admin', 'active-visitors'] as const,
+  search: (q: string) => ['admin', 'search', q] as const,
 };

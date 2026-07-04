@@ -5,6 +5,7 @@ export const login = (email: string, password: string) => api.post('/auth/login'
 export const logoutAdmin = () => api.post('/auth/logout');
 export const getMe = () => api.get('/auth/me');
 export const changePassword = (data: { currentPassword: string; newPassword: string }) => api.post('/auth/change-password', data);
+export const globalSearch = (q: string) => api.get('/admin/search', { params: { q } });
 
 // Profile
 export const getProfile = () => api.get('/profile');

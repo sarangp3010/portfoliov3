@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, useNavigate, Outlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { PUBLIC_URL } from '../../config/urls';
 import { Scene3D } from '../ui/Scene3D';
 import { NotificationBell } from '../ui/NotificationBell';
+import { CommandPalette } from '../ui/CommandPalette';
 
 const navItems = [
   { section: 'Overview' },
@@ -38,6 +39,18 @@ export const AdminLayout = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const handleSignOut = () => { signOut(); navigate('/login'); };
 
@@ -154,6 +167,21 @@ export const AdminLayout = () => {
             </svg>
           </button>
           <div className="flex-1" />
+          {/* Search trigger */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors"
+            style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.12)', color: '#475569' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.3)'; e.currentTarget.style.color = '#94a3b8'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.12)'; e.currentTarget.style.color = '#475569'; }}
+          >
+            <span>🔍</span>
+            <span>Search</span>
+            <kbd className="text-xs px-1.5 py-0.5 rounded ml-1"
+              style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', color: '#334155' }}>
+              ⌘K
+            </kbd>
+          </button>
           <NotificationBell notificationsPath="/notifications" />
           <span className="text-xs font-mono hidden sm:block" style={{ color: '#334155' }}>{user?.email}</span>
           <span className="badge-purple text-xs px-2.5 py-1 rounded-full"
@@ -166,6 +194,8 @@ export const AdminLayout = () => {
           <Outlet />
         </main>
       </div>
+
+      <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 };
