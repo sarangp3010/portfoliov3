@@ -4,6 +4,73 @@ This document logs all completed tasks, the changes made, and the commit(s) asso
 
 ---
 
+## Task: Frontend test coverage — public + customer apps (#2)
+
+**Status:** Completed
+**Commit:** TBD
+**Date:** 2026-07-03
+
+### What was done
+
+Wired up Vitest + @testing-library/react for `apps/public` and `apps/customer` (previously build-only). Added 78 new tests across 6 new test files. Fixed 4 server inquiry test failures caused by missing cache service mock after CRM pipeline added `cacheDeletePattern` calls. Updated CI workflow to run tests for all four packages.
+
+### Files created
+- `apps/customer/vitest.config.ts`
+- `apps/customer/src/tests/setup.ts`
+- `apps/customer/src/tests/auth.test.tsx` (18 tests — Login, Register, OAuthCallback)
+- `apps/customer/src/tests/checkout.test.tsx` (6 tests — Services/checkout page)
+- `apps/customer/src/tests/dashboard.test.tsx` (12 tests — Dashboard welcome, stats, payments, quick links)
+- `apps/customer/src/tests/payments.test.tsx` (13 tests — table, receipt download, pagination)
+- `apps/public/vitest.config.ts`
+- `apps/public/src/tests/setup.ts`
+- `apps/public/src/tests/inquiry.test.tsx` (8 tests — Services inquiry form)
+- `apps/public/src/tests/blog.test.tsx` (13 tests — post cards, tag filter, empty/loading state)
+- `apps/public/src/tests/notfound.test.tsx` (7 tests — 404 page)
+
+### Files modified
+- `apps/customer/package.json` — `"test"` script: `npm run build` → `vitest run`
+- `apps/public/package.json` — same
+- `apps/customer/package-lock.json` — new dev deps (vitest, @testing-library/*)
+- `apps/public/package-lock.json` — same
+- `server/tests/inquiry.test.ts` — added cache.service mock (cacheDeletePattern was missing)
+- `.github/workflows/ci.yml` — added `npm test` steps to public and customer jobs
+- `CLAUDE.md` — updated testing section; removed outdated "no tests for public/customer" note
+
+### Key patterns
+- `vi.hoisted()` needed when mock values are used inside `vi.mock()` factory
+- HTML5 `required` validation blocks `userEvent.click` on submit — use `fireEvent.submit(form)` for validation tests
+- React 18 global error reporting: async rejections in onClick handlers are reported globally even when caught in try/catch; avoid testing these paths via `userEvent.click` in Vitest
+- Tags appear in both filter buttons and post cards → use `getAllByText` not `getByText`
+
+### Final test counts
+| Package | Tests |
+|---|---|
+| `server` | 55 passed |
+| `apps/admin` | 37 passed |
+| `apps/customer` | 50 passed |
+| `apps/public` | 28 passed |
+| **Total** | **170 passed** |
+
+---
+
+## Task: GitHub Actions CI pipeline (#1 / B1)
+
+**Status:** Completed
+**Commit:** `b3bced2`
+**Date:** 2026-07-03
+
+### What was done
+
+Created `.github/workflows/ci.yml` with 4 parallel jobs (server, admin, public, customer). Each job checks out, installs with `npm ci`, runs TypeScript checks (`tsc --noEmit` for server, `npm run build` for frontends), and runs tests. Updated CLAUDE.md to add TanStack Query to the tech stack table, fill in the testing section with commands, add local dev setup section, and note docs drift.
+
+### Files created
+- `.github/workflows/ci.yml`
+
+### Files modified
+- `CLAUDE.md`
+
+---
+
 ## Task: CRM-style inquiry pipeline
 
 **Status:** Completed

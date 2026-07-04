@@ -39,6 +39,14 @@ jest.mock('../src/config/index', () => ({
   },
 }));
 
+jest.mock('../src/services/cache.service', () => ({
+  cached:             jest.fn((_, fn) => fn()),
+  cacheGet:           jest.fn().mockResolvedValue(null),
+  cacheSet:           jest.fn().mockResolvedValue(undefined),
+  cacheDelete:        jest.fn().mockResolvedValue(undefined),
+  cacheDeletePattern: jest.fn().mockResolvedValue(undefined),
+}));
+
 // ── Imports ───────────────────────────────────────────────────────────────────
 
 import { Request, Response, NextFunction } from 'express';

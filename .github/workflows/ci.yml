@@ -42,7 +42,7 @@ jobs:
         working-directory: apps/admin
 
   public:
-    name: Public — build
+    name: Public — build + tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,9 +55,11 @@ jobs:
         working-directory: apps/public
       - run: npm run build
         working-directory: apps/public
+      - run: npm test
+        working-directory: apps/public
 
   customer:
-    name: Customer — build
+    name: Customer — build + tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -69,4 +71,6 @@ jobs:
       - run: npm ci
         working-directory: apps/customer
       - run: npm run build
+        working-directory: apps/customer
+      - run: npm test
         working-directory: apps/customer
