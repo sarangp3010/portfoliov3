@@ -29,6 +29,7 @@ A full-stack portfolio SaaS platform. It has three distinct user-facing apps, on
 | Email | Nodemailer (SMTP) via BullMQ queue |
 | Auth | JWT (admin), JWT (customer), Google + GitHub OAuth |
 | AI | OpenAI (chatbot only) |
+| Frontend server state | TanStack Query (all three apps) |
 
 ---
 
@@ -148,6 +149,19 @@ Never call `nodemailer` directly in a controller. Use the functions in `email.se
 
 ---
 
+## Testing
+
+```bash
+cd server && npm test                          # Jest — mocks prisma/nodemailer/stripe/logger
+cd server && npm test -- --testPathPattern=email
+cd apps/admin && npm test                       # Vitest + Testing Library
+cd apps/admin && npx vitest run src/tests/modal.test.tsx
+```
+
+`apps/public` and `apps/customer` have no real test runner wired up — their `npm test` just runs `npm run build`. Don't claim or assume frontend test coverage for those two apps.
+
+---
+
 ## Coding conventions
 
 - **TypeScript** — no `any` unless unavoidable; run `tsc --noEmit` before every commit
@@ -157,7 +171,7 @@ Never call `nodemailer` directly in a controller. Use the functions in `email.se
 - **No comments on obvious code** — only comment non-obvious logic
 - **Error handling** — all controller functions use `try/catch` and call `next(err)`
 - **Cache invalidation** — every admin write must invalidate the relevant cache keys
-- **No Redux** — React Context for auth/theme; TanStack Query for server state (when added)
+- **No Redux** — React Context for auth/theme; TanStack Query for server state. Query keys live in `apps/admin/src/lib/queryKeys.ts` and `apps/customer/src/lib/queryKeys.ts`; page-level query hooks live under `apps/*/src/hooks/queries/`. Check there before adding new `useState`/`useEffect` fetch boilerplate to a page.
 
 ---
 
@@ -192,17 +206,24 @@ Always include `Co-Authored-By` line.
 
 ## Local development
 
+Primary workflow — one command, single port, subdomain-routed:
+
 ```bash
-# Start Postgres + Redis
-docker compose up postgres redis -d
+npm run install:all      # root, server, all three apps, dev-proxy
+docker compose up -d postgres   # add `redis` too if testing the queue/cache path
+npm run db:setup
+npm run dev               # dev-proxy (:5173) + API (:5001) + public/admin/customer, concurrently
+```
 
-# Server
-cd server && npm run dev
+Then open `http://public.localhost:5173`, `http://admin.localhost:5173`, `http://customer.localhost:5173`, `http://api.localhost:5173` — `dev-proxy/index.js` routes each subdomain to its internal Vite/Express port, no `/etc/hosts` edits needed. Default seeded admin: `admin@portfolio.dev` / `Admin@123456`.
 
-# Frontend apps (each in a separate terminal)
-cd apps/public   && npm run dev
-cd apps/admin    && npm run dev
-cd apps/customer && npm run dev
+To run one piece at a time instead: `npm run dev:proxy`, `npm run dev:api`, `npm run dev:public`, `npm run dev:admin`, `npm run dev:customer` (or `cd server && npm run dev`, `cd apps/<app> && npm run dev` directly — these bind to their raw Vite/Express ports, e.g. `:3001` for admin, bypassing the proxy).
+
+Alternative — full Docker stack (closer to prod topology, includes Redis and nginx):
+
+```bash
+docker compose up -d --build
+docker compose exec server npm run db:setup
 ```
 
 Required env vars (see `server/.env`):
@@ -211,3 +232,9 @@ Required env vars (see `server/.env`):
 - `REDIS_URL` — optional, falls back to Prisma cache if not set
 - `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` — for payments
 - `SMTP_USER`, `SMTP_PASS` — for emails (Gmail app password recommended)
+
+---
+
+## Docs vs. code — known drift
+
+`docs/architecture/frontend.md` and `docs/architecture/backend.md` predate the TanStack Query and Redis/BullMQ work and still describe the old Context+`useEffect`-only frontend and pure-Prisma cache. Trust this file and the code over those two docs until someone refreshes them. `docs/schema.md`, `docs/migrations.md`, and `docs/testing.md` are accurate as of this writing.
