@@ -122,8 +122,8 @@ describe('Payments — receipt download', () => {
     // Mock URL/blob APIs used in handleReceipt
     const createObjectURL = vi.fn(() => 'blob:mock-url');
     const revokeObjectURL = vi.fn();
-    global.URL.createObjectURL = createObjectURL;
-    global.URL.revokeObjectURL = revokeObjectURL;
+    window.URL.createObjectURL = createObjectURL;
+    window.URL.revokeObjectURL = revokeObjectURL;
 
     renderPayments();
     await userEvent.click(screen.getByText('⬇ PDF'));
